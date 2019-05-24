@@ -58,7 +58,8 @@ print("Training Model...")
 #prep.train_model(X_train,y_train,method='NB')
 #prep.train_model(X_train,y_train,method='GMM',n_components=5,init_params='kmeans')
 #prep.train_model(X_train,y_train,method='RandomForest')
-prep.train_model(X_train,y_train,method='ANN',layers=[(10,'relu'),(20,'relu')])
+#prep.train_model(X_train,y_train,method='ANN',layers=[(10,'relu'),(20,'relu')])
+prep.train_model(X_train,y_train,method='CNN')
 
 print("Accuracy: ",prep.evaluate_model(X_test,y_test))
 

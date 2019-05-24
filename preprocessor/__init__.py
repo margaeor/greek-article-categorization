@@ -5,6 +5,7 @@ import codecs
 import pickle
 import numpy as np
 from keras import losses
+from keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout
 import sklearn
 
 from numpy import inf
@@ -359,6 +360,27 @@ class Preprocessor(object):
 			self.classifier.compile(loss=losses.kullback_leibler_divergence, optimizer='adam', metrics=['accuracy'])
 			self.classifier.fit(X, y, epochs = n_epochs , batch_size = b_size )
 
+		elif method == 'CNN':
+
+			n_epochs = 50
+			b_size = 10
+
+			X = np.expand_dims(X,axis=2)
+
+			model = Sequential()
+			model.add(Convolution1D(nb_filter=512, filter_length=1, input_shape=(X.shape[1],1)))
+			model.add(Activation('relu'))
+			model.add(Flatten())
+			model.add(Dropout(0.4))
+			model.add(Dense(2048, activation='relu'))
+			model.add(Dense(1024, activation='relu'))
+			model.add(Dense(y.shape[1]))
+			model.add(Activation('softmax'))
+			model.compile(loss=losses.kullback_leibler_divergence, optimizer='adam', metrics=['accuracy'])
+			model.fit(X, y, epochs = n_epochs , batch_size = b_size )
+
+			self.classifier = model
+
 		else:
 			raise Exception("No such classifier exists!")
 
@@ -371,6 +393,12 @@ class Preprocessor(object):
 
 		if self.classifier_type == 'ANN':
 			loss,acc = self.classifier.evaluate(X, y)
+
+			return acc
+		elif self.classifier_type == 'CNN':
+			X = np.expand_dims(X, axis=2)
+
+			loss, acc = self.classifier.evaluate(X, y)
 
 			return acc
 
