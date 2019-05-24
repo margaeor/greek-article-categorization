@@ -408,3 +408,4 @@ _xmsgs/
 *.pdf
 *.out
 *.aux
+*.pyc

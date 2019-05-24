@@ -52,6 +52,7 @@ class Preprocessor(object):
 		self.idf = []
 
 	def unpickle_data(self,file):
+		#return []
 		if os.path.isfile(file):
 			with open(file, 'rb') as f:
 				# The protocol version used is detected automatically, so we do not
@@ -61,6 +62,7 @@ class Preprocessor(object):
 			return []
 
 	def pickle_data(self,file,data):
+		#return
 		with open(file, 'wb') as f:
 			# Pickle the 'data' dictionary using the highest protocol available.
 			pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
@@ -350,6 +352,7 @@ class Preprocessor(object):
 		#77%
 		elif method == 'NB':
 			self.classifier = GaussianNB(**kwargs)
+			y = np.argmax(y,axis=1)
 			self.classifier.fit(X, y)
 
 		elif method == 'GMM':
@@ -438,6 +441,7 @@ class Preprocessor(object):
 		elif self.classifier_type == 'NB' or self.classifier_type == 'GMM':
 			#print(pred.shape)
 			pred = self.classifier.predict(X)
+			y = np.argmax(y,axis=1)
 			return np.sum(1*(pred == y))/len(y)
 		else:
 			pred = np.argmax(self.classifier.predict(X),axis=1)

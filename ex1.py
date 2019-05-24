@@ -55,10 +55,10 @@ y_test = prep.encode_labels(labels_test)
 
 print("Training Model...")
 #prep.train_model(X_train,y_train,method='KNN',n_neighbors=5)
-#prep.train_model(X_train,y_train,method='NB')
+prep.train_model(X_train,y_train,method='NB')
 #prep.train_model(X_train,y_train,method='GMM',n_components=5,init_params='kmeans')
 #prep.train_model(X_train,y_train,method='RandomForest')
-prep.train_model(X_train,y_train,method='ANN',layers=[(20,'relu'),(50,'relu')])
+#prep.train_model(X_train,y_train,method='ANN',layers=[(20,'relu'),(50,'relu')])
 #prep.train_model(X_train,y_train,method='CNN')
 
 print("Accuracy: ",prep.evaluate_model(X_test,y_test))
