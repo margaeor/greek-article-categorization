@@ -37,12 +37,34 @@ class Preprocessor(object):
 		#print(self.neutral_words)
 
 		self.greek_stemmer = GreekStemmer()
-		self.reduction_model = None
+
 		self.transform_model = None
+		self.tranform_model_type = None
+
+		self.reduction_model = None
+		self.reduction_model_type = None
+
 		self.classifier = None
-		self.label_dict = None
 		self.classifier_type = None
+
+		self.label_dict = None
+
 		self.idf = []
+
+	def unpickle_data(self,file):
+		if os.path.isfile(file):
+			with open(file, 'rb') as f:
+				# The protocol version used is detected automatically, so we do not
+				# have to specify it.
+				return pickle.load(f)
+		else:
+			return []
+
+	def pickle_data(self,file,data):
+		with open(file, 'wb') as f:
+			# Pickle the 'data' dictionary using the highest protocol available.
+			pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+
 
 	def parse_files(self,dir,only_parse=False):
 
@@ -122,11 +144,11 @@ class Preprocessor(object):
 
 		pickle_file = './data/word_dict.pickle'
 
-		if not recreate and os.path.isfile(pickle_file):
-			with open(pickle_file, 'rb') as f:
-				# The protocol version used is detected automatically, so we do not
-				# have to specify it.
-				return pickle.load(f)
+		if not recreate:
+			data = self.unpickle_data(pickle_file)
+			if len(data) > 0:
+				words_dict,counter = data
+				return words_dict
 
 		for text in texts:
 			for word in text:
@@ -134,14 +156,20 @@ class Preprocessor(object):
 					words_dict[word] = counter
 					counter += 1
 
-		with open(pickle_file, 'wb') as f:
-			# Pickle the 'data' dictionary using the highest protocol available.
-			pickle.dump(words_dict, f, pickle.HIGHEST_PROTOCOL)
+
+		self.pickle_data(pickle_file,(words_dict,counter))
 
 		return words_dict
 
 
 	def create_tfidf_train(self,word_dict,texts):
+
+		pickle_file = './data/train/tfidf.pickle'
+		data = self.unpickle_data(pickle_file)
+
+		if len(data) > 0:
+			self.idf,tfidf = data
+			return tfidf
 
 		n_words = max(word_dict.values())
 		n_documents = len(texts)
@@ -169,12 +197,22 @@ class Preprocessor(object):
 
 		tfidf = tft*idf
 
+		self.pickle_data(pickle_file,(idf,tfidf))
+
 		return tfidf
 
 	def create_tfidf_test(self, word_dict, texts):
 
 		if len(self.idf) == 0:
 			raise Exception("You must create training idf first")
+
+		pickle_file = './data/test/tfidf.pickle'
+		data = self.unpickle_data(pickle_file)
+
+		if len(data) > 0:
+			tfidf = data
+			return tfidf
+
 
 		n_words = max(word_dict.values())
 		n_documents = len(texts)
@@ -197,20 +235,20 @@ class Preprocessor(object):
 
 		tfidf = tft * self.idf
 
+		self.pickle_data(pickle_file,tfidf)
+
 		return tfidf
 
-	def transform_train(self,tfidf,method='entropy'):
+	def transform_train(self,tfidf,method='entropy',mode='train'):
 
 		self.transform_model = method
 
-		pickle_file = './data/train/tranform.pickle'
+		pickle_file = './data/'+mode+'/tranform_'+method+'.pickle'
 
+		data = self.unpickle_data(pickle_file)
 
-		#if os.path.isfile(pickle_file):
-		#	with open(pickle_file, 'rb') as f:
-		#		# The protocol version used is detected automatically, so we do not
-		#		# have to specify it.
-		#		return pickle.load(f)
+		if len(data) > 0:
+			return data
 
 		l = []
 		if method == 'entropy':
@@ -224,20 +262,14 @@ class Preprocessor(object):
 
 			l = e*np.log(1 + tfidf)
 
-			#return l
 
 		elif method == 'binary':
-
 			l = 1*(tfidf > 0)
-			#return 1*(tfidf > 0)
 
 		elif method == 'log':
 			l = np.log(1+tfidf)
-			#return np.log(1+tfidf)
 
-		with open(pickle_file, 'wb') as f:
-			# Pickle the 'data' dictionary using the highest protocol available.
-			pickle.dump(l, f, pickle.HIGHEST_PROTOCOL)
+		self.pickle_data(pickle_file,l)
 
 		return l
 
@@ -246,19 +278,20 @@ class Preprocessor(object):
 		if self.transform_model == None:
 			raise Exception("You must train first!")
 
-		return self.transform_train(tfidf,self.transform_model)
+		return self.transform_train(tfidf,self.transform_model,mode='test')
 
 
 	def reduce_dims_train(self,X,y,method='PCA',**kwargs):
 
-		pickle_file = './data/train/reduced_dims.pickle'
+		pickle_file = './data/train/reduced_dims_'+method+'.pickle'
 
+		data = self.unpickle_data(pickle_file)
 
-		#if os.path.isfile(pickle_file):
-		#	with open(pickle_file, 'rb') as f:
-		#		# The protocol version used is detected automatically, so we do not
-				# have to specify it.
-		#		return pickle.load(f)
+		if len(data) > 0:
+			l_kwargs,transform_model_type,reduction_model,transformed = data
+			if transform_model_type == self.tranform_model_type and l_kwargs == kwargs:
+				self.reduction_model = reduction_model
+				return transformed
 
 		if method == 'PCA':
 			# n_components = 50
@@ -280,9 +313,7 @@ class Preprocessor(object):
 		self.reduction_model.fit(X, y)
 		transformed = self.reduction_model.transform(X)
 
-		#with open(pickle_file, 'wb') as f:
-		#	# Pickle the 'data' dictionary using the highest protocol available.
-		#	pickle.dump(transformed, f, pickle.HIGHEST_PROTOCOL)
+		self.pickle_data(pickle_file,(kwargs,self.tranform_model_type,self.reduction_model,transformed))
 
 		return transformed
 

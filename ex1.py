@@ -19,7 +19,7 @@ articles_test, labels_test = prep.parse_files('test')
 # Create dictionary
 print("Creating Dictionary...")
 dct = prep.create_word_dictionary(articles_train)
-
+print(len(dct))
 
 # Create tfidf table
 print("Creating tfidf matrix...")
@@ -34,7 +34,7 @@ X_test = prep.transform_test(X_test)
 # Reduce dimensions
 print("Reducing dimensions...")
 #X_train = prep.reduce_dims_train(X_train,labels_train,'LDA',n_components=50,solver='svd')
-X_train = prep.reduce_dims_train(X_train,labels_train,'PCA',n_components=50)
+X_train = prep.reduce_dims_train(X_train,labels_train,'PCA',n_components=70)
 X_test = prep.reduce_dims_test(X_test)
 
 
@@ -58,8 +58,8 @@ print("Training Model...")
 #prep.train_model(X_train,y_train,method='NB')
 #prep.train_model(X_train,y_train,method='GMM',n_components=5,init_params='kmeans')
 #prep.train_model(X_train,y_train,method='RandomForest')
-#prep.train_model(X_train,y_train,method='ANN',layers=[(10,'relu'),(20,'relu')])
-prep.train_model(X_train,y_train,method='CNN')
+prep.train_model(X_train,y_train,method='ANN',layers=[(20,'relu'),(50,'relu')])
+#prep.train_model(X_train,y_train,method='CNN')
 
 print("Accuracy: ",prep.evaluate_model(X_test,y_test))
 
