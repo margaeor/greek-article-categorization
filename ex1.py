@@ -2,15 +2,12 @@ from preprocessor import Preprocessor
 import numpy as np
 
 
-
 prep = Preprocessor()
 
 # Preprocess
 print("Preprocessing...")
 articles_train, labels_train = prep.parse_files('train')
 articles_test, labels_test = prep.parse_files('test')
-
-
 
 
 #articles_train,labels_train = articles_train[:100],labels_train[:100]
@@ -54,8 +51,8 @@ y_test = prep.encode_labels(labels_test)
 
 
 print("Training Model...")
-#prep.train_model(X_train,y_train,method='KNN',n_neighbors=5)
-prep.train_model(X_train,y_train,method='NB')
+prep.train_model(X_train,y_train,method='KNN',n_neighbors=5)
+#prep.train_model(X_train,y_train,method='NB')
 #prep.train_model(X_train,y_train,method='GMM',n_components=5,init_params='kmeans')
 #prep.train_model(X_train,y_train,method='RandomForest')
 #prep.train_model(X_train,y_train,method='ANN',layers=[(20,'relu'),(50,'relu')])

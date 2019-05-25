@@ -4,6 +4,7 @@ import os
 import codecs
 import pickle
 import numpy as np
+
 from keras import losses
 from keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout
 import sklearn
@@ -52,20 +53,69 @@ class Preprocessor(object):
 		self.idf = []
 
 	def unpickle_data(self,file):
-		#return []
-		if os.path.isfile(file):
-			with open(file, 'rb') as f:
-				# The protocol version used is detected automatically, so we do not
-				# have to specify it.
-				return pickle.load(f)
+
+		data_file = file + '.data'
+		meta_file = file + '.metadata'
+
+		if os.path.isfile(meta_file) and os.path.isfile(data_file):
+
+			return_val = ()
+
+			with open(meta_file, 'rb') as f:
+				metadata = pickle.load(f)
+				if isinstance(metadata,list) and len(metadata)>0:
+
+					# If we have a numpy array
+					if len(metadata[0]) == 3:
+						dtype, w, h = metadata[0]
+
+						with open(data_file, 'rb') as fh:
+							return_val = (np.frombuffer(fh.read(), dtype=dtype).reshape((int(w), int(h))),)
+
+					if len(metadata)>1:
+						return_val = return_val + metadata[1]
+
+			if len(return_val) == 1:
+				return return_val[0]
+			else:
+				return return_val
+
 		else:
 			return []
 
 	def pickle_data(self,file,data):
-		#return
-		with open(file, 'wb') as f:
-			# Pickle the 'data' dictionary using the highest protocol available.
-			pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+
+		data_file = file + '.data'
+		meta_file = file + '.metadata'
+
+		numpy_matrix = np.array([])
+		metadata = []
+
+		if type(data) == np.ndarray:
+			numpy_matrix = data
+			metadata.append((numpy_matrix.dtype, *numpy_matrix.shape))
+
+		elif isinstance(data, tuple) and len(data)>0 and type(data[0]) == np.ndarray:
+			numpy_matrix = data[0]
+			metadata.append((numpy_matrix.dtype, *numpy_matrix.shape))
+			if len(data) > 1:
+				metadata.append(data[1:])
+		else:
+			metadata.append(())
+			metadata.append(data)
+
+
+		with open(meta_file, 'wb') as f:
+			# Pickle the metadata file.
+			pickle.dump(metadata, f, pickle.HIGHEST_PROTOCOL)
+
+		# If we have metadata for numpy array, then write
+		# the array to disc
+		if len(metadata[0]) > 0:
+			with open(data_file, 'wb+') as fh:
+				fh.write(numpy_matrix.data)
+
+
 
 
 	def parse_files(self,dir,only_parse=False):
@@ -144,7 +194,7 @@ class Preprocessor(object):
 		words_dict = {}
 		counter = 0
 
-		pickle_file = './data/word_dict.pickle'
+		pickle_file = './data/word_dict'
 
 		if not recreate:
 			data = self.unpickle_data(pickle_file)
@@ -166,11 +216,11 @@ class Preprocessor(object):
 
 	def create_tfidf_train(self,word_dict,texts):
 
-		pickle_file = './data/train/tfidf.pickle'
+		pickle_file = './data/train/tfidf'
 		data = self.unpickle_data(pickle_file)
 
 		if len(data) > 0:
-			self.idf,tfidf = data
+			tfidf,self.idf = data
 			return tfidf
 
 		n_words = max(word_dict.values())
@@ -199,7 +249,7 @@ class Preprocessor(object):
 
 		tfidf = tft*idf
 
-		self.pickle_data(pickle_file,(idf,tfidf))
+		self.pickle_data(pickle_file,(tfidf,idf))
 
 		return tfidf
 
@@ -208,7 +258,7 @@ class Preprocessor(object):
 		if len(self.idf) == 0:
 			raise Exception("You must create training idf first")
 
-		pickle_file = './data/test/tfidf.pickle'
+		pickle_file = './data/test/tfidf'
 		data = self.unpickle_data(pickle_file)
 
 		if len(data) > 0:
@@ -245,7 +295,7 @@ class Preprocessor(object):
 
 		self.transform_model = method
 
-		pickle_file = './data/'+mode+'/tranform_'+method+'.pickle'
+		pickle_file = './data/'+mode+'/tranform_'+method
 
 		data = self.unpickle_data(pickle_file)
 
@@ -285,12 +335,12 @@ class Preprocessor(object):
 
 	def reduce_dims_train(self,X,y,method='PCA',**kwargs):
 
-		pickle_file = './data/train/reduced_dims_'+method+'.pickle'
+		pickle_file = './data/train/reduced_dims_'+method
 
 		data = self.unpickle_data(pickle_file)
 
 		if len(data) > 0:
-			l_kwargs,transform_model_type,reduction_model,transformed = data
+			transformed,l_kwargs,transform_model_type,reduction_model,= data
 			if transform_model_type == self.tranform_model_type and l_kwargs == kwargs:
 				self.reduction_model = reduction_model
 				return transformed
@@ -315,7 +365,7 @@ class Preprocessor(object):
 		self.reduction_model.fit(X, y)
 		transformed = self.reduction_model.transform(X)
 
-		self.pickle_data(pickle_file,(kwargs,self.tranform_model_type,self.reduction_model,transformed))
+		self.pickle_data(pickle_file,(transformed,kwargs,self.tranform_model_type,self.reduction_model))
 
 		return transformed
 

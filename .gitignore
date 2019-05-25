@@ -409,3 +409,6 @@ _xmsgs/
 *.out
 *.aux
 *.pyc
+*.data
+*.metadata
+*.pyc
