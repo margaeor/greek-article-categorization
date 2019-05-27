@@ -18,6 +18,7 @@ from sklearn.neighbors import KNeighborsClassifier as KNN
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.ensemble import RandomForestClassifier as RFC
 
+from sklearn import discriminant_analysis
 from sklearn import decomposition
 from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.naive_bayes import GaussianNB
@@ -31,7 +32,7 @@ np.warnings.filterwarnings('ignore')
 class Preprocessor(object):
 
 
-	def __init__(self):
+	def __init__(self,ignore_pickles=False):
 		with open(os.path.join(
                   os.path.dirname(__file__), 'neutral_words.txt'), 'r',encoding="utf8") as fp:
 			self.neutral_words = set([w[:-1] for w in fp.readlines()])
@@ -49,7 +50,7 @@ class Preprocessor(object):
 		self.classifier_type = None
 
 		self.label_dict = None
-
+		self.ignore_pickles = ignore_pickles
 		self.idf = []
 
 	def unpickle_data(self,file):
@@ -57,7 +58,7 @@ class Preprocessor(object):
 		data_file = file + '.data'
 		meta_file = file + '.metadata'
 
-		if os.path.isfile(meta_file) and os.path.isfile(data_file):
+		if os.path.isfile(meta_file) and os.path.isfile(data_file) and not self.ignore_pickles:
 
 			return_val = ()
 
@@ -90,6 +91,9 @@ class Preprocessor(object):
 
 		numpy_matrix = np.array([])
 		metadata = []
+
+		if self.ignore_pickles:
+			return
 
 		if type(data) == np.ndarray:
 			numpy_matrix = data
@@ -214,7 +218,7 @@ class Preprocessor(object):
 		return words_dict
 
 
-	def create_tfidf_train(self,word_dict,texts):
+	def create_tfidf_train(self,word_dict,texts,doc_threshold=10,cutoff_percent=0.75):
 
 		pickle_file = './data/train/tfidf'
 		data = self.unpickle_data(pickle_file)
@@ -243,7 +247,11 @@ class Preprocessor(object):
 
 		tft = m/np.sum(m,axis=1).reshape((-1,1))
 
-		idf = np.log(n_documents/np.sum(np.int32(m>0),axis=0))
+		doc_frequency = np.sum(np.int32(m>0),axis=0)
+
+		idf = np.log(n_documents/doc_frequency)
+
+		idf = idf * np.int32(np.logical_and(doc_frequency > doc_threshold, doc_frequency<n_documents*cutoff_percent))
 
 		self.idf = idf
 
@@ -352,7 +360,7 @@ class Preprocessor(object):
 
 		elif method == 'LDA':
 			# n_components=50, solver=svd
-			self.reduction_model = LDA(**kwargs)
+			self.reduction_model = discriminant_analysis.LinearDiscriminantAnalysis(n_components=50)
 
 		elif method == 'MEAN':
 			# n_components=50
@@ -361,7 +369,8 @@ class Preprocessor(object):
 		else:
 			raise Exception("Wrong Method")
 
-
+		#dct = {k:i for (i,k) in enumerate(set(y))}
+		#y = [dct[i] for i in y]
 		self.reduction_model.fit(X, y)
 		transformed = self.reduction_model.transform(X)
 
@@ -439,6 +448,7 @@ class Preprocessor(object):
 
 			self.classifier.add(Dense(l1, input_dim=X.shape[1], activation=a1))
 			self.classifier.add(Dense(l2, activation=a2))
+			self.classifier.add(Dense(30, activation=a2))
 			self.classifier.add(Dense(y.shape[1], activation='softmax'))
 
 			self.classifier.compile(loss=losses.kullback_leibler_divergence, optimizer='adam', metrics=['accuracy'])
@@ -452,12 +462,12 @@ class Preprocessor(object):
 			X = np.expand_dims(X,axis=2)
 
 			model = Sequential()
-			model.add(Convolution1D(nb_filter=512, filter_length=1, input_shape=(X.shape[1],1)))
+			model.add(Convolution1D(nb_filter=128, filter_length=1, input_shape=(X.shape[1],1)))
 			model.add(Activation('relu'))
 			model.add(Flatten())
 			model.add(Dropout(0.4))
-			model.add(Dense(2048, activation='relu'))
-			model.add(Dense(1024, activation='relu'))
+			model.add(Dense(128, activation='relu'))
+			model.add(Dense(64, activation='relu'))
 			model.add(Dense(y.shape[1]))
 			model.add(Activation('softmax'))
 			model.compile(loss=losses.kullback_leibler_divergence, optimizer='adam', metrics=['accuracy'])

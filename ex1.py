@@ -2,16 +2,16 @@ from preprocessor import Preprocessor
 import numpy as np
 
 
-prep = Preprocessor()
+prep = Preprocessor(ignore_pickles=True)
 
 # Preprocess
 print("Preprocessing...")
 articles_train, labels_train = prep.parse_files('train')
 articles_test, labels_test = prep.parse_files('test')
 
-
-#articles_train,labels_train = articles_train[:100],labels_train[:100]
-#articles_test,labels_test = articles_test[:100],labels_test[:100]
+N = 10000
+articles_train,labels_train = articles_train[:N],labels_train[:N]
+articles_test,labels_test = articles_test[:N],labels_test[:N]
 
 # Create dictionary
 print("Creating Dictionary...")
@@ -30,8 +30,8 @@ X_test = prep.transform_test(X_test)
 
 # Reduce dimensions
 print("Reducing dimensions...")
-#X_train = prep.reduce_dims_train(X_train,labels_train,'LDA',n_components=50,solver='svd')
-X_train = prep.reduce_dims_train(X_train,labels_train,'PCA',n_components=70)
+#X_train = prep.reduce_dims_train(X_train,labels_train,'LDA',n_components=70,solver='svd')
+X_train = prep.reduce_dims_train(X_train,labels_train,'PCA',n_components=50)
 X_test = prep.reduce_dims_test(X_test)
 
 
@@ -51,11 +51,11 @@ y_test = prep.encode_labels(labels_test)
 
 
 print("Training Model...")
-prep.train_model(X_train,y_train,method='KNN',n_neighbors=5)
+#prep.train_model(X_train,y_train,method='KNN',n_neighbors=5)
 #prep.train_model(X_train,y_train,method='NB')
-#prep.train_model(X_train,y_train,method='GMM',n_components=5,init_params='kmeans')
+#prep.train_model(X_train,y_train,method='GMM',n_components=6,init_params='kmeans')
 #prep.train_model(X_train,y_train,method='RandomForest')
-#prep.train_model(X_train,y_train,method='ANN',layers=[(20,'relu'),(50,'relu')])
+prep.train_model(X_train,y_train,method='ANN',epochs=80,batch_size=20,layers=[(50,'relu'),(20,'relu')])
 #prep.train_model(X_train,y_train,method='CNN')
 
 print("Accuracy: ",prep.evaluate_model(X_test,y_test))
