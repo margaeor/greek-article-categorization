@@ -3,6 +3,7 @@ import numpy as np
 from numpy.linalg import norm
 
 
+
 def cosine(x, y):
 	res = 1 - np.dot(x, y) / (norm(x) * norm(y))
 	return res
@@ -63,14 +64,18 @@ if __name__ == '__main__':
 	#prep.train_model(X_train,y_train,method='KNN',n_neighbors=5)
 	#prep.train_model(X_train, y_train, method='KNN', n_neighbors=5,metric='mahalanobis',metric_params={'V': np.cov(X_train, rowvar=False)})
 	#prep.train_model(X_train, y_train, method='KNN', n_neighbors=5, metric=cosine)
-	prep.train_model(X_train,y_train,method='SVM', gamma='scale', decision_function_shape='ovo')
+	#prep.train_model(X_train,y_train,method='SVM', gamma='scale', decision_function_shape='ovo')
 	#prep.train_model(X_train,y_train,method='NB')
-	#prep.train_model(X_train,y_train,method='GMM',n_components=6,init_params='kmeans')
+	#prep.train_model(X_train, y_train, method='GMM', n_components=n, init_params='kmeans', covariance_type='full')
+	#prep.train_model(X_train,y_train,method='GMM',n_components=30,init_params='kmeans',covariance_type='full')
 	#prep.train_model(X_train,y_train,method='RandomForest')
 	#prep.train_model(X_train,y_train,method='ANN',epochs=80,batch_size=20,layers=[(50,'relu'),(20,'relu')])
 	#prep.train_model(X_train,y_train,method='CNN')
 
-	print("Accuracy: ",prep.evaluate_model(X_test,y_test))
+	for n in range(1,25):
+		prep.train_model(X_train, y_train, method='GMM', n_components=n, init_params='kmeans', covariance_type='full')
+		#print("Accuracy: ",prep.evaluate_model(X_test,y_test))
+		print("Accuracy for "+str(n)+" is:", prep.evaluate_model(X_test, y_test))
 
 	#print(X.shape)
 

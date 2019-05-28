@@ -8,6 +8,14 @@ import gensim
 
 from keras import losses
 from keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout
+
+from models.classification.knn import KNN
+from models.reduction.lda import LDA
+#from models.reduction.pca import PCA
+from models.classification.nb import NB
+from models.classification.gmm import GMM
+
+from sklearn.decomposition.pca import PCA
 import sklearn
 from sklearn.neighbors import DistanceMetric
 
@@ -18,15 +26,16 @@ from keras.layers import Dense,MaxPooling1D
 
 from sklearn.model_selection import GridSearchCV
 from sklearn import svm
-from sklearn.neighbors import KNeighborsClassifier as KNN
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+#from sklearn.neighbors import KNeighborsClassifier as KNN
+#from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.ensemble import RandomForestClassifier as RFC
 
+#from sklearn.decomposition import PCA
 from sklearn import discriminant_analysis
 from sklearn import decomposition
 from sklearn.decomposition import LatentDirichletAllocation
-from sklearn.naive_bayes import GaussianNB
-from sklearn.mixture import GaussianMixture as GMM
+#from sklearn.naive_bayes import GaussianNB
+#from sklearn.mixture import GaussianMixture as GMM
 
 from greek_stemmer import GreekStemmer
 
@@ -267,17 +276,28 @@ class Preprocessor(object):
 
 		tfidf = tft*idf
 
-		self.calc_mutual_information(m)
+		#self.calc_mutual_information(tfidf,m)
 
 		self.pickle_data(pickle_file,(tfidf,idf))
 
 		return tfidf
 
-	def calc_mutual_information(self,m):
-		#print("STARTING BAD THING")
-		#m1 = np.int32(m>0)
-		#res = [[0 if i > j else np.sum(np.int32(m1[:, i] == m1[:, j])) / m1.shape[0] for j in range(m1.shape[1])] for i in
-		# range(m1.shape[1])]
+	def calc_mutual_information(self,tfidf,m):
+		print("STARTING BAD THING")
+		m1 = np.int32(m>0)
+
+		red_model = MeanReduction(n_components=1000,word_dict=self.word_dict)
+		red_model.fit(tfidf)
+
+		m1 = red_model.transform(m1)
+
+		res = [[0 if i > j else np.sum(np.int32(m1[:, i] == m1[:, j])) / m1.shape[0] for j in range(m1.shape[1])] for i in
+		 range(m1.shape[1])]
+
+
+
+
+		print(res)
 		#print(res.shape)
 		pass
 
@@ -384,12 +404,14 @@ class Preprocessor(object):
 
 		if method == 'PCA':
 			# n_components = 50
-			self.reduction_model = decomposition.PCA(**kwargs)
+			self.reduction_model = PCA(**kwargs)
 
 
 		elif method == 'LDA':
 			# n_components=50, solver=svd
-			self.reduction_model = discriminant_analysis.LinearDiscriminantAnalysis(n_components=50)
+			self.reduction_model = LDA(n_components=50)
+			dct = {k: i for (i, k) in enumerate(set(y))}
+			y = [dct[i] for i in y]
 
 		elif method == 'MEAN':
 			# n_components=50
@@ -398,8 +420,7 @@ class Preprocessor(object):
 		else:
 			raise Exception("Wrong Method")
 
-		#dct = {k:i for (i,k) in enumerate(set(y))}
-		#y = [dct[i] for i in y]
+
 		self.reduction_model.fit(X, y)
 		transformed = self.reduction_model.transform(X)
 
@@ -436,23 +457,27 @@ class Preprocessor(object):
 		if method == 'KNN':
 			# n_neighbors=5, metric='minkowski'
 			self.classifier = KNN(**kwargs)
+			y = np.argmax(y, axis=1)
 			self.classifier.fit(X, y)
 		elif method == 'SVM':
 			# gamma='scale', decision_function_shape='ovo'
 			self.classifier = svm.SVC(**kwargs)
 			y = np.argmax(y, axis=1)
-
 			self.classifier.fit(X, y)
 		#77%
 		elif method == 'NB':
-			self.classifier = GaussianNB(**kwargs)
+			self.classifier = NB(**kwargs)
 			y = np.argmax(y,axis=1)
 			self.classifier.fit(X, y)
 
 		elif method == 'GMM':
 			# n_components=5, tol=1e-3, max_iter=100, init_params='kmeans'
 			self.classifier = GMM(**kwargs)
+			y = np.argmax(y,axis=1)
+			#self.classifier.means_ = [np.mean(X[y == i,:],axis=0) for i in range(len(set(y)))]
 			self.classifier.fit(X, y)
+			#self.classifier._estimate_log_prob(X)
+			#pass
 		#79%
 		elif method == 'RandomForest':
 			self.classifier = RFC(**kwargs)
@@ -534,7 +559,7 @@ class Preprocessor(object):
 
 		#elif self.classifier_type == 'LDA':
 		#	self.classifier.predict()
-		elif self.classifier_type == 'NB' or self.classifier_type == 'GMM' or self.classifier_type == 'SVM':
+		elif self.classifier_type in ['NB','GMM','SVM','KNN']:
 			#print(pred.shape)
 			pred = self.classifier.predict(X)
 			y = np.argmax(y,axis=1)
@@ -553,12 +578,17 @@ class MeanReduction:
 
 	def __init__(self,**kwargs):
 		self.components = []
+		self.word_dict = {} if 'word_dict' not in kwargs else kwargs['word_dict']
 		self.n_components = kwargs['n_components'] if 'n_components' in kwargs else 50
 
-	def fit(self,X,y):
+	def fit(self,X,y=None):
 
 		means = np.mean(X,axis=0)
 		self.components = means.argsort()[::-1][:self.n_components]
+
+		word_list = list(self.word_dict.items())
+		self.reduced_dict = {word_list[i][0]:enum for (enum,i) in enumerate(self.components)}
+		print(self.reduced_dict)
 
 	def transform(self,X):
 
