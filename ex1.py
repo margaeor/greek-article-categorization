@@ -1,7 +1,7 @@
 from preprocessor import Preprocessor
 import numpy as np
 from numpy.linalg import norm
-
+import matplotlib.pyplot as plt
 
 
 def cosine(x, y):
@@ -11,7 +11,7 @@ def cosine(x, y):
 
 if __name__ == '__main__':
 
-	prep = Preprocessor(ignore_pickles=False)
+	prep = Preprocessor(ignore_pickles=True)
 
 	# Preprocess
 	print("Preprocessing...")
@@ -72,10 +72,35 @@ if __name__ == '__main__':
 	#prep.train_model(X_train,y_train,method='ANN',epochs=80,batch_size=20,layers=[(50,'relu'),(20,'relu')])
 	#prep.train_model(X_train,y_train,method='CNN')
 
-	for n in range(1,25):
+
+	acc_n_vals =[]
+	n_vals=[]
+
+	for n in range(1,8):
 		prep.train_model(X_train, y_train, method='GMM', n_components=n, init_params='kmeans', covariance_type='full')
 		#print("Accuracy: ",prep.evaluate_model(X_test,y_test))
-		print("Accuracy for "+str(n)+" is:", prep.evaluate_model(X_test, y_test))
+		acc = prep.evaluate_model(X_test, y_test)
+		n_vals.append(n)
+		acc_n_vals.append(acc)
+		print("Accuracy for "+str(n)+" is:",acc )
+
+	acc_n_vals = np.array(acc_n_vals)
+
+
+	max_accuracy = np.max(acc_n_vals)
+	best_threshold = n_vals[np.argmax(acc_n_vals)]
+	print(max_accuracy, best_threshold)
+	plt.plot(n_vals, acc_n_vals)
+	plt.annotate('(%.2f,%.2f)' % (best_threshold, max_accuracy), xy=(best_threshold, max_accuracy),
+				 xytext=(best_threshold, max_accuracy + 0.3),
+				 arrowprops=dict(facecolor='black', shrink=0.05),
+				 ha='center'
+				 )
+	plt.ylabel('Prediction Accuracy')
+	plt.xlabel('n value (n)')
+	plt.ylim([0.3, 1.3])
+	plt.title('Accuracy for different values of n')
+	plt.show()
 
 	#print(X.shape)
 

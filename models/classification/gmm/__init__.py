@@ -19,12 +19,17 @@ class GMM:
 		y = np.array(y)
 		class_labels = set(y)
 		self.n_classes = len(class_labels)
+		self.P = np.zeros(self.n_classes, dtype=np.float32)
+
 		n_samples,n_features = X.shape
 
 		for i in range(self.n_classes):
 			model = GaussianMixture(n_components=self.n_components,covariance_type=self.covariance_type,
 									init_params=self.init_params,max_iter=self.max_iter)
-			model.fit(X[y==i,:],y)
+			X_class = X[y==i,:]
+			self.P[i] = np.sum(np.int32(X_class > 0)) / len(y)
+
+			model.fit(X_class,y)
 			self.models[i] = model
 
 
@@ -33,7 +38,7 @@ class GMM:
 		probs = np.zeros((X.shape[0], self.n_classes))
 
 		for (i,model) in self.models.items():
-			probs[:,i] = np.sum(model._estimate_log_prob(X),axis=1)
+			probs[:,i] = np.sum(model._estimate_log_prob(X),axis=1)+np.log(self.P[i])
 
 		y_pred = np.argmax(probs,axis=1)
 
