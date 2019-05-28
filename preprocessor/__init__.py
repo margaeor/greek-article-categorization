@@ -4,16 +4,20 @@ import os
 import codecs
 import pickle
 import numpy as np
+import gensim
 
 from keras import losses
 from keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout
 import sklearn
+from sklearn.neighbors import DistanceMetric
 
 from numpy import inf
 
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense,MaxPooling1D
 
+from sklearn.model_selection import GridSearchCV
+from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier as KNN
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.ensemble import RandomForestClassifier as RFC
@@ -25,6 +29,8 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.mixture import GaussianMixture as GMM
 
 from greek_stemmer import GreekStemmer
+
+from nltk.collocations import *
 
 np.warnings.filterwarnings('ignore')
 
@@ -41,7 +47,6 @@ class Preprocessor(object):
 		self.greek_stemmer = GreekStemmer()
 
 		self.transform_model = None
-		self.tranform_model_type = None
 
 		self.reduction_model = None
 		self.reduction_model_type = None
@@ -52,6 +57,9 @@ class Preprocessor(object):
 		self.label_dict = None
 		self.ignore_pickles = ignore_pickles
 		self.idf = []
+
+		self.id2word = None
+		self.word_dict = None
 
 	def unpickle_data(self,file):
 
@@ -204,6 +212,8 @@ class Preprocessor(object):
 			data = self.unpickle_data(pickle_file)
 			if len(data) > 0:
 				words_dict,counter = data
+				self.id2word = {b:a for (a,b) in words_dict.items()}
+				self.word_dict = words_dict
 				return words_dict
 
 		for text in texts:
@@ -212,9 +222,9 @@ class Preprocessor(object):
 					words_dict[word] = counter
 					counter += 1
 
-
 		self.pickle_data(pickle_file,(words_dict,counter))
-
+		self.id2word = {b: a for (a, b) in words_dict.items()}
+		self.word_dict = words_dict
 		return words_dict
 
 
@@ -257,9 +267,20 @@ class Preprocessor(object):
 
 		tfidf = tft*idf
 
+		self.calc_mutual_information(m)
+
 		self.pickle_data(pickle_file,(tfidf,idf))
 
 		return tfidf
+
+	def calc_mutual_information(self,m):
+		#print("STARTING BAD THING")
+		#m1 = np.int32(m>0)
+		#res = [[0 if i > j else np.sum(np.int32(m1[:, i] == m1[:, j])) / m1.shape[0] for j in range(m1.shape[1])] for i in
+		# range(m1.shape[1])]
+		#print(res.shape)
+		pass
+
 
 	def create_tfidf_test(self, word_dict, texts):
 
@@ -329,6 +350,13 @@ class Preprocessor(object):
 		elif method == 'log':
 			l = np.log(1+tfidf)
 
+		#elif method == 'LDA':
+		#	corpus_for_lda = [[(i,k) for (i,k) in enumerate(row)] for row in tfidf]
+		#	lda_model_tfidf = gensim.models.LdaMulticore(corpus_for_lda, num_topics=6, id2word=self.id2word, passes=2,
+		#												 workers=4)
+		#	for idx, topic in lda_model_tfidf.print_topics(-1):
+		#		print('Topic: {} Word: {}'.format(idx, topic))
+
 		self.pickle_data(pickle_file,l)
 
 		return l
@@ -349,8 +377,9 @@ class Preprocessor(object):
 
 		if len(data) > 0:
 			transformed,l_kwargs,transform_model_type,reduction_model,= data
-			if transform_model_type == self.tranform_model_type and l_kwargs == kwargs:
+			if transform_model_type == self.transform_model and l_kwargs == kwargs:
 				self.reduction_model = reduction_model
+				print(transformed.shape)
 				return transformed
 
 		if method == 'PCA':
@@ -374,7 +403,7 @@ class Preprocessor(object):
 		self.reduction_model.fit(X, y)
 		transformed = self.reduction_model.transform(X)
 
-		self.pickle_data(pickle_file,(transformed,kwargs,self.tranform_model_type,self.reduction_model))
+		self.pickle_data(pickle_file,(transformed,kwargs,self.transform_model,self.reduction_model))
 
 		return transformed
 
@@ -407,6 +436,12 @@ class Preprocessor(object):
 		if method == 'KNN':
 			# n_neighbors=5, metric='minkowski'
 			self.classifier = KNN(**kwargs)
+			self.classifier.fit(X, y)
+		elif method == 'SVM':
+			# gamma='scale', decision_function_shape='ovo'
+			self.classifier = svm.SVC(**kwargs)
+			y = np.argmax(y, axis=1)
+
 			self.classifier.fit(X, y)
 		#77%
 		elif method == 'NB':
@@ -463,6 +498,7 @@ class Preprocessor(object):
 
 			model = Sequential()
 			model.add(Convolution1D(nb_filter=128, filter_length=1, input_shape=(X.shape[1],1)))
+			model.add(MaxPooling1D(pool_size=2, strides=None, padding='valid'))
 			model.add(Activation('relu'))
 			model.add(Flatten())
 			model.add(Dropout(0.4))
@@ -498,7 +534,7 @@ class Preprocessor(object):
 
 		#elif self.classifier_type == 'LDA':
 		#	self.classifier.predict()
-		elif self.classifier_type == 'NB' or self.classifier_type == 'GMM':
+		elif self.classifier_type == 'NB' or self.classifier_type == 'GMM' or self.classifier_type == 'SVM':
 			#print(pred.shape)
 			pred = self.classifier.predict(X)
 			y = np.argmax(y,axis=1)
@@ -506,7 +542,7 @@ class Preprocessor(object):
 		else:
 			pred = np.argmax(self.classifier.predict(X),axis=1)
 			y = np.argmax(y,axis=1)
-			print(pred.shape)
+			#print(pred.shape)
 			return np.sum(1*(pred == y))/y.shape[0]
 
 	#def pickle_data(self,file,object):
