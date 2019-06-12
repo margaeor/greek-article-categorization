@@ -3,13 +3,20 @@ import unicodedata
 import os
 import codecs
 import pickle
-import numpy as np
-import gensim
 import nltk
+import numpy as np
+
+
+from numpy import inf
+from keras.models import Sequential
+from keras.layers import Dense,MaxPooling1D
+
 
 from keras import losses
 from keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout
 
+
+# Custom classification models
 from models.classification.knn import KNN
 #from models.reduction.lda import LDA
 #from models.reduction.pca import PCA
@@ -17,34 +24,24 @@ from models.classification.nb import NB
 from models.classification.gmm import GMM
 from models.classification.mean import MEAN_CLASSIFIER
 
-from nltk.collocations import *
-
-from sklearn.decomposition.pca import PCA
-
-import sklearn
-from sklearn.neighbors import DistanceMetric
-
-from numpy import inf
-
-from keras.models import Sequential
-from keras.layers import Dense,MaxPooling1D
 
 from sklearn.model_selection import GridSearchCV
-from sklearn import svm
-#from sklearn.neighbors import KNeighborsClassifier as KNN
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
-from sklearn.ensemble import RandomForestClassifier as RFC
 
+
+
+#from sklearn.neighbors import KNeighborsClassifier as KNN
 #from sklearn.decomposition import PCA
-from sklearn import discriminant_analysis
-from sklearn import decomposition
-from sklearn.decomposition import LatentDirichletAllocation
 #from sklearn.naive_bayes import GaussianNB
 #from sklearn.mixture import GaussianMixture as GMM
+from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier as RFC
+from sklearn.decomposition.pca import PCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+
 
 from greek_stemmer import GreekStemmer
-
 from nltk.collocations import *
+
 
 np.warnings.filterwarnings('ignore')
 
@@ -204,11 +201,10 @@ class Preprocessor(object):
 				best_bigrams = finder.nbest(bigram_measures.pmi, self.n_bigrams)
 				self.bigrams = set(best_bigrams)
 
-				#print("Best bigrams:",best_bigrams)
+				print("Best bigrams:",best_bigrams)
 
 			articles = [article + [b[0]+" "+b[1] for b in nltk.bigrams(article) if b in self.bigrams]
 							for article in articles]
-			print(articles[0])
 
 		if len(articles) != len(labels):
 			raise Exception("Couldn't create labels")
@@ -228,8 +224,6 @@ class Preprocessor(object):
 
 		words = self.tokenize(text)
 
-		#words = list(filter(lambda x: x not in self.neutral_words, words))
-
 		words = [self.greek_stemmer.stem(w) for w in words if w not in self.neutral_words]
 
 		r = re.compile('[0-9]')
@@ -237,8 +231,6 @@ class Preprocessor(object):
 		words = [self.NUMBER_CONST if bool(r.search(w)) else w for w in words]
 
 		words = [w for w in words if len(w)>1]
-
-		#words = words + [b[0]+" "+b[1] for b in nltk.bigrams(words) if np.random.randint(100)<5]
 
 		return words
 
@@ -251,10 +243,6 @@ class Preprocessor(object):
 
 
 	def tokenize(self,text):
-
-		#text = re.sub(r'([0-9])(\s*[\.,]\s*)([0-9])', '\1\3', text)
-		#text = re.sub(r'(([\w]+)\.)(([\w]+)\.)(([\w]+)\.)?(([\w]+)\.)?(([\w]+)\.)?','\2\4\6\8\10',text)
-		#text = re.sub(r'([^\w0-9])+', ' ', text)
 
 		for regex,replacement in self.clear_regexes:
 			text = regex.sub(replacement,text)
@@ -336,8 +324,6 @@ class Preprocessor(object):
 
 		self.selected_dims = var.argsort()[-n_dims:][::-1]
 
-		#for val in :
-		#	print(self.id2word[val])
 
 		m_reduced = m[:,self.selected_dims]
 
@@ -362,11 +348,6 @@ class Preprocessor(object):
 	def calc_mutual_information(self,tfidf,m,n_dims_reduced=1000):
 
 		m1 = np.int32(m>0)
-
-		#red_model = MeanReduction(n_components=1000,word_dict=self.word_dict)
-		#red_model.fit(tfidf)
-
-		#m1 = red_model.transform(m1)
 
 		n_documents = m1.shape[0]
 
@@ -403,7 +384,6 @@ class Preprocessor(object):
 
 
 		n_words = max(word_dict.values())
-		n_documents = len(texts)
 
 		m = []
 
@@ -459,13 +439,6 @@ class Preprocessor(object):
 
 		elif method == 'log':
 			l = np.log(1+tfidf)
-
-		#elif method == 'LDA':
-		#	corpus_for_lda = [[(i,k) for (i,k) in enumerate(row)] for row in tfidf]
-		#	lda_model_tfidf = gensim.models.LdaMulticore(corpus_for_lda, num_topics=6, id2word=self.id2word, passes=2,
-		#												 workers=4)
-		#	for idx, topic in lda_model_tfidf.print_topics(-1):
-		#		print('Topic: {} Word: {}'.format(idx, topic))
 
 		self.pickle_data(pickle_file,l)
 
@@ -564,19 +537,12 @@ class Preprocessor(object):
 			# n_components=5, tol=1e-3, max_iter=100, init_params='kmeans'
 			self.classifier = GMM(**kwargs)
 			y = np.argmax(y,axis=1)
-			#self.classifier.means_ = [np.mean(X[y == i,:],axis=0) for i in range(len(set(y)))]
 			self.classifier.fit(X, y)
-			#self.classifier._estimate_log_prob(X)
 			#pass
 		#79%
 		elif method == 'RandomForest':
 			self.classifier = RFC(**kwargs)
 			self.classifier.fit(X, y)
-
-		# elif method == 'LDA':
-		# 	#n_components=5, learning_method='batch'|'online'
-		# 	self.classifier = LatentDirichletAllocation(**kwargs)
-		# 	self.classifier.fit(X, y)
 
 		elif method == 'MEAN':
 			self.classifier = MEAN_CLASSIFIER(**kwargs)
@@ -652,21 +618,15 @@ class Preprocessor(object):
 
 			return acc
 
-		#elif self.classifier_type == 'LDA':
-		#	self.classifier.predict()
 		elif self.classifier_type in ['NB','GMM','SVM','KNN','MEAN']:
-			#print(pred.shape)
 			pred = self.classifier.predict(X)
 			y = np.argmax(y,axis=1)
 			return np.sum(1*(pred == y))/len(y)
 		else:
 			pred = np.argmax(self.classifier.predict(X),axis=1)
 			y = np.argmax(y,axis=1)
-			#print(pred.shape)
 			return np.sum(1*(pred == y))/y.shape[0]
 
-	#def pickle_data(self,file,object):
-	#
 
 
 class MeanReduction:
