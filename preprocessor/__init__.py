@@ -5,17 +5,22 @@ import codecs
 import pickle
 import numpy as np
 import gensim
+import nltk
 
 from keras import losses
 from keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout
 
 from models.classification.knn import KNN
-from models.reduction.lda import LDA
+#from models.reduction.lda import LDA
 #from models.reduction.pca import PCA
 from models.classification.nb import NB
 from models.classification.gmm import GMM
+from models.classification.mean import MEAN_CLASSIFIER
+
+from nltk.collocations import *
 
 from sklearn.decomposition.pca import PCA
+
 import sklearn
 from sklearn.neighbors import DistanceMetric
 
@@ -27,7 +32,7 @@ from keras.layers import Dense,MaxPooling1D
 from sklearn.model_selection import GridSearchCV
 from sklearn import svm
 #from sklearn.neighbors import KNeighborsClassifier as KNN
-#from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.ensemble import RandomForestClassifier as RFC
 
 #from sklearn.decomposition import PCA
@@ -47,13 +52,15 @@ np.warnings.filterwarnings('ignore')
 class Preprocessor(object):
 
 
-	def __init__(self,ignore_pickles=False):
+	def __init__(self,ignore_pickles=False,strict=False,n_bigrams=0,bigram_min_freq=3):
 		with open(os.path.join(
                   os.path.dirname(__file__), 'neutral_words.txt'), 'r',encoding="utf8") as fp:
 			self.neutral_words = set([w[:-1] for w in fp.readlines()])
 		#print(self.neutral_words)
 
 		self.greek_stemmer = GreekStemmer()
+
+		self.strict = strict
 
 		self.transform_model = None
 
@@ -69,6 +76,21 @@ class Preprocessor(object):
 
 		self.id2word = None
 		self.word_dict = None
+
+		# Variables used for bigram features
+		self.use_bigrams = n_bigrams>0
+		self.n_bigrams = n_bigrams
+		self.bigram_min_freq = bigram_min_freq
+		self.bigrams = []
+
+		# Compile regexes that clear text for better performance
+		self.clear_regexes =[
+			(re.compile(r'([0-9])(\s*[\.,]\s*)([0-9])'), '\1\3'),
+			(re.compile(r'(([\w]+)\.)(([\w]+)\.)(([\w]+)\.)?(([\w]+)\.)?(([\w]+)\.)?'),'\2\4\6\8\10'),
+			(re.compile(r'([^\w0-9])+'), ' ')
+		]
+
+		self.NUMBER_CONST = 'NUMBERVALUE'
 
 	def unpickle_data(self,file):
 
@@ -139,13 +161,13 @@ class Preprocessor(object):
 
 
 
-	def parse_files(self,dir,only_parse=False):
+	def parse_files(self,dir,only_parse=False,is_train=False):
 
 		dir = './data/'+dir
 
 		pickle_file = dir+'/backup.pickle'
 
-		if os.path.isfile(pickle_file):
+		if not (self.ignore_pickles and self.strict) and os.path.isfile(pickle_file):
 			with open(pickle_file, 'rb') as f:
 				# The protocol version used is detected automatically, so we do not
 				# have to specify it.
@@ -153,6 +175,8 @@ class Preprocessor(object):
 
 		articles = []
 		labels = []
+
+		i=0
 		for root, dirs, files in os.walk(dir):
 			for name in files:
 
@@ -167,6 +191,24 @@ class Preprocessor(object):
 							data = f.read().replace('\n', ' ').replace('\x96', ' ')
 							articles.append(data if only_parse else self.preprocess(data))
 							labels.append(m.group(0))
+
+							#if i%10==0:
+							#	print(str(i)+" texts parsed")
+							i+=1
+
+		if self.use_bigrams:
+			if is_train:
+				bigram_measures = nltk.collocations.BigramAssocMeasures()
+				finder = BigramCollocationFinder.from_documents(articles)
+				finder.apply_freq_filter(self.bigram_min_freq)
+				best_bigrams = finder.nbest(bigram_measures.pmi, self.n_bigrams)
+				self.bigrams = set(best_bigrams)
+
+				#print("Best bigrams:",best_bigrams)
+
+			articles = [article + [b[0]+" "+b[1] for b in nltk.bigrams(article) if b in self.bigrams]
+							for article in articles]
+			print(articles[0])
 
 		if len(articles) != len(labels):
 			raise Exception("Couldn't create labels")
@@ -186,9 +228,17 @@ class Preprocessor(object):
 
 		words = self.tokenize(text)
 
+		#words = list(filter(lambda x: x not in self.neutral_words, words))
+
 		words = [self.greek_stemmer.stem(w) for w in words if w not in self.neutral_words]
 
-		words = [w for w in words if len(w)>0]
+		r = re.compile('[0-9]')
+
+		words = [self.NUMBER_CONST if bool(r.search(w)) else w for w in words]
+
+		words = [w for w in words if len(w)>1]
+
+		#words = words + [b[0]+" "+b[1] for b in nltk.bigrams(words) if np.random.randint(100)<5]
 
 		return words
 
@@ -202,8 +252,12 @@ class Preprocessor(object):
 
 	def tokenize(self,text):
 
-		text = re.sub(r'(([\w]+)\.)(([\w]+)\.)(([\w]+)\.)?(([\w]+)\.)?(([\w]+)\.)?','\2\4\6\8\10',text)
-		text = re.sub(r'([^\w]|[0-9])+', ' ', text)
+		#text = re.sub(r'([0-9])(\s*[\.,]\s*)([0-9])', '\1\3', text)
+		#text = re.sub(r'(([\w]+)\.)(([\w]+)\.)(([\w]+)\.)?(([\w]+)\.)?(([\w]+)\.)?','\2\4\6\8\10',text)
+		#text = re.sub(r'([^\w0-9])+', ' ', text)
+
+		for regex,replacement in self.clear_regexes:
+			text = regex.sub(replacement,text)
 
 		words = text.split(' ')
 
@@ -232,12 +286,13 @@ class Preprocessor(object):
 					counter += 1
 
 		self.pickle_data(pickle_file,(words_dict,counter))
+
 		self.id2word = {b: a for (a, b) in words_dict.items()}
 		self.word_dict = words_dict
 		return words_dict
 
 
-	def create_tfidf_train(self,word_dict,texts,doc_threshold=10,cutoff_percent=0.75):
+	def create_tfidf_train(self,word_dict,texts,labels,doc_threshold=10,cutoff_percent=0.75,n_dims=3000):
 
 		pickle_file = './data/train/tfidf'
 		data = self.unpickle_data(pickle_file)
@@ -248,6 +303,9 @@ class Preprocessor(object):
 
 		n_words = max(word_dict.values())
 		n_documents = len(texts)
+		label_set = set(labels)
+		n_classes = len(label_set)
+		n_features = n_words+1
 
 		m = []
 
@@ -264,41 +322,70 @@ class Preprocessor(object):
 
 		m = np.array(m)
 
-		tft = m/np.sum(m,axis=1).reshape((-1,1))
+		dct = {k: i for (i, k) in enumerate(label_set)}
 
-		doc_frequency = np.sum(np.int32(m>0),axis=0)
+		y = np.array([dct[i] for i in labels])
+
+		m_class = np.zeros((n_classes,n_features))
+
+		for i in range(n_classes):
+			a = np.sum(m[y==i,:],axis=0)
+			m_class[i,:] = a/np.sum(a)
+
+		var = np.var(m_class,axis=0)
+
+		self.selected_dims = var.argsort()[-n_dims:][::-1]
+
+		#for val in :
+		#	print(self.id2word[val])
+
+		m_reduced = m[:,self.selected_dims]
+
+		tft = m_reduced/np.sum(m_reduced,axis=1).reshape((-1,1))
+
+		doc_frequency = np.sum(np.int32(m_reduced>0),axis=0)
 
 		idf = np.log(n_documents/doc_frequency)
 
-		idf = idf * np.int32(np.logical_and(doc_frequency > doc_threshold, doc_frequency<n_documents*cutoff_percent))
+		#idf = idf * np.int32(np.logical_and(doc_frequency > doc_threshold, doc_frequency<n_documents*cutoff_percent))
 
 		self.idf = idf
 
 		tfidf = tft*idf
 
-		#self.calc_mutual_information(tfidf,m)
+		#self.calc_mutual_information(tfidf,m_reduced)
 
 		self.pickle_data(pickle_file,(tfidf,idf))
 
 		return tfidf
 
-	def calc_mutual_information(self,tfidf,m):
-		print("STARTING BAD THING")
+	def calc_mutual_information(self,tfidf,m,n_dims_reduced=1000):
+
 		m1 = np.int32(m>0)
 
-		red_model = MeanReduction(n_components=1000,word_dict=self.word_dict)
-		red_model.fit(tfidf)
+		#red_model = MeanReduction(n_components=1000,word_dict=self.word_dict)
+		#red_model.fit(tfidf)
 
-		m1 = red_model.transform(m1)
+		#m1 = red_model.transform(m1)
 
-		res = [[0 if i > j else np.sum(np.int32(m1[:, i] == m1[:, j])) / m1.shape[0] for j in range(m1.shape[1])] for i in
-		 range(m1.shape[1])]
+		n_documents = m1.shape[0]
 
+		n_dims = m1.shape[1]
 
+		res = [[np.NINF if i >= j else np.log(n_documents * np.sum(np.int32(m1[:, i] == m1[:, j]))/np.sum(np.int32(m[:,i]>0)) /
+								 np.sum(np.int32(m[:,j]>0))) for j in range(m1.shape[1])] for i in range(m1.shape[1])]
 
+		res = np.array(res) / np.log(2)
 
-		print(res)
-		#print(res.shape)
+		res[np.isnan(res)] = np.NINF
+
+		best_pairs = res.reshape(-1).argsort()[-n_dims_reduced:][::-1]
+
+		results = [(a,b) for a,b in zip(best_pairs // n_dims, best_pairs % n_dims)]
+
+		for tup in results:
+			print(self.id2word[self.selected_dims[tup[0]]]+"-"+self.id2word[self.selected_dims[tup[1]]])
+
 		pass
 
 
@@ -321,7 +408,7 @@ class Preprocessor(object):
 		m = []
 
 		for text in texts:
-			word_vec = [0] * (n_words + 1)
+			word_vec = np.array([0] * (n_words + 1))
 
 			for word in text:
 
@@ -332,7 +419,10 @@ class Preprocessor(object):
 
 		m = np.array(m)
 
-		tft = m / np.sum(m, axis=1).reshape((-1, 1))
+		m_reduced = m[:,self.selected_dims]
+
+
+		tft = m_reduced / np.sum(m_reduced, axis=1).reshape((-1, 1))
 
 		tfidf = tft * self.idf
 
@@ -483,9 +573,14 @@ class Preprocessor(object):
 			self.classifier = RFC(**kwargs)
 			self.classifier.fit(X, y)
 
-		elif method == 'LDA':
-			#n_components=5, learning_method='batch'|'online'
-			self.classifier = LatentDirichletAllocation(**kwargs)
+		# elif method == 'LDA':
+		# 	#n_components=5, learning_method='batch'|'online'
+		# 	self.classifier = LatentDirichletAllocation(**kwargs)
+		# 	self.classifier.fit(X, y)
+
+		elif method == 'MEAN':
+			self.classifier = MEAN_CLASSIFIER(**kwargs)
+			y = np.argmax(y,axis=1)
 			self.classifier.fit(X, y)
 
 		elif method == 'ANN':
@@ -559,7 +654,7 @@ class Preprocessor(object):
 
 		#elif self.classifier_type == 'LDA':
 		#	self.classifier.predict()
-		elif self.classifier_type in ['NB','GMM','SVM','KNN']:
+		elif self.classifier_type in ['NB','GMM','SVM','KNN','MEAN']:
 			#print(pred.shape)
 			pred = self.classifier.predict(X)
 			y = np.argmax(y,axis=1)
