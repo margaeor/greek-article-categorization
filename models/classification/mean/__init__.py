@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.linalg import norm
 
 class MEAN_CLASSIFIER:
 	def __init__(self, metric='cosine', metric_params=None,**kwargs):
@@ -19,6 +20,10 @@ class MEAN_CLASSIFIER:
 		def euclidean(U,v):
 
 			return np.sqrt(np.sum(np.power(U - v, 2)))
+
+		def cosine(x, y):
+			res = 1 - np.dot(x, y) / (norm(x) * norm(y))
+			return res
 
 		def mahalanobis(x,y):
 			VI = self.metric_params['VI']

@@ -5,20 +5,21 @@ import codecs
 import pickle
 import nltk
 import numpy as np
-
-
 from numpy import inf
+
+from itertools import chain
 from keras.models import Sequential
 from keras.layers import Dense,MaxPooling1D
 
 
 from keras import losses
+from keras import optimizers
 from keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout
 
 
 # Custom classification models
 
-from models.classification.knn import KNN
+#from models.classification.knn import KNN
 from models.classification.nb import NB
 from models.classification.gmm import GMM
 from models.classification.mean import MEAN_CLASSIFIER
@@ -31,7 +32,7 @@ from sklearn.model_selection import GridSearchCV
 
 
 
-#from sklearn.neighbors import KNeighborsClassifier as KNN
+from sklearn.neighbors import KNeighborsClassifier as KNN
 #from sklearn.decomposition import PCA
 #from sklearn.naive_bayes import GaussianNB
 #from sklearn.mixture import GaussianMixture as GMM
@@ -162,9 +163,12 @@ class Preprocessor(object):
 
 	def parse_files(self,dir,only_parse=False,is_train=False):
 
-		dir = './data/'+dir
+		is_kfold = isinstance(dir,tuple)
+		is_train = is_kfold or is_train
 
-		pickle_file = dir+'/backup.pickle'
+		directories = list(dir) if is_kfold else [dir]
+
+		pickle_file = './data/'+"-".join(directories)+'.pickle'
 
 		if not (self.ignore_pickles and self.strict) and os.path.isfile(pickle_file):
 			with open(pickle_file, 'rb') as f:
@@ -176,7 +180,8 @@ class Preprocessor(object):
 		labels = []
 
 		i=0
-		for root, dirs, files in os.walk(dir):
+		for root, dirs, files in chain.from_iterable(os.walk('./data/'+dirr) for dirr in directories):
+
 			for name in files:
 
 				link = os.path.join(root, name)
@@ -554,10 +559,14 @@ class Preprocessor(object):
 		elif method == 'ANN':
 
 			self.classifier = Sequential()
-			l1,a1 = 12,'relu'
-			l2,a2 = 8,'relu'
-			n_epochs = 150
+			l1,a1 = 50,'relu'
+			l2,a2 = 20,'relu'
+			learning_rate = 0.001
+			n_epochs = 50
 			b_size = 10
+
+			if 'learning_rate' in kwargs:
+				learning_rate = kwargs['learning_rate']
 
 			if 'layers' in kwargs:
 				l1,a1 = kwargs['layers'][0]
@@ -574,13 +583,25 @@ class Preprocessor(object):
 			self.classifier.add(Dense(30, activation=a2))
 			self.classifier.add(Dense(y.shape[1], activation='softmax'))
 
-			self.classifier.compile(loss=losses.kullback_leibler_divergence, optimizer='adam', metrics=['accuracy'])
+			optimizer = optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999)
+			self.classifier.compile(loss=losses.kullback_leibler_divergence, optimizer=optimizer, metrics=['accuracy'])
 			self.classifier.fit(X, y, epochs = n_epochs , batch_size = b_size )
 
 		elif method == 'CNN':
 
 			n_epochs = 50
 			b_size = 10
+			learning_rate = 0.001
+
+
+			if 'learning_rate' in kwargs:
+				learning_rate = kwargs['learning_rate']
+
+			if 'epochs' in kwargs:
+				n_epochs = kwargs['epochs']
+
+			if 'batch_size' in kwargs:
+				b_size = kwargs['batch_size']
 
 			X = np.expand_dims(X,axis=2)
 
@@ -594,7 +615,9 @@ class Preprocessor(object):
 			model.add(Dense(64, activation='relu'))
 			model.add(Dense(y.shape[1]))
 			model.add(Activation('softmax'))
-			model.compile(loss=losses.kullback_leibler_divergence, optimizer='adam', metrics=['accuracy'])
+
+			optimizer = optimizers.Adam(lr=learning_rate, beta_1=0.9, beta_2=0.999)
+			model.compile(loss=losses.kullback_leibler_divergence, optimizer=optimizer, metrics=['accuracy'])
 			model.fit(X, y, epochs = n_epochs , batch_size = b_size )
 
 			self.classifier = model

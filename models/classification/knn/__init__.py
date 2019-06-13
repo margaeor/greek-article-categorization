@@ -1,5 +1,7 @@
 import numpy as np
+from numpy.linalg import norm
 from collections import Counter
+from multiprocessing.pool import ThreadPool
 
 class KNN:
 	def __init__(self, n_neighbors=5,metric='cosine', metric_params=None, n_jobs=None,**kwargs):
@@ -20,6 +22,10 @@ class KNN:
 		def euclidean(U,v):
 
 			return np.sqrt(np.sum(np.power(U - v, 2)))
+
+		def cosine(x, y):
+			res = 1 - np.dot(x, y) / (norm(x) * norm(y))
+			return res
 
 		def mahalanobis(x,y):
 			VI = self.metric_params['VI']
@@ -49,3 +55,4 @@ class KNN:
 		y_pred = [Counter(neighbors).most_common(1)[0][0] for neighbors in k_neighbors]
 
 		return y_pred
+
