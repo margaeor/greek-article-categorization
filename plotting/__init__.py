@@ -142,6 +142,7 @@ class Plotter:
 		kf = KFold(n_splits=5, shuffle=True)
 
 		param_list = [
+			{'method':'NB'},
 			{'method':'SVM','kernel': 'rbf', 'C': 1.5, 'gamma': 'scale', 'decision_function_shape': 'ovo'},
 			{'method':'RandomForest','n_estimators':35},
 			{'method':'MEAN','metric': 'mahalanobis','metric_params':{'V': np.cov(self.X_train, rowvar=False)}},

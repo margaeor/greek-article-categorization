@@ -984,7 +984,220 @@ data into a single feature because we are mostly
 interested in the existence of a number in general
 and not an individual number.
 
+\subsection{Feature Transformation}
+In many cases, we can improve the performance of
+our algorithms by performing a $1-1$ transformation
+over the elements of a term document matrix, which
+may lead to a better representation of our dataset.
+There are several such transformations, but for
+the scope of our paper we examined the following:
 
+\begin{table}[!h]
+% increase table row spacing, adjust to taste
+\renewcommand{\arraystretch}{2}
+% if using array.sty, it might be a good idea to tweak the value of
+% \extrarowheight as needed to properly center the text within the cells
+\caption{TFIDF transformations}
+\label{transformation}
+\centering
+% Some packages, such as MDW tools, offer better commands for making tables
+% than the plain LaTeX2e tabular which is used here.
+\begin{tabular}{|c|c|}
+\hline
+Transformation & Forumula\\
+\hline
+\textbf{Binary} & 1 if $x_{ij}>0$ else 0\\
+\hline
+\textbf{Logarithmic} & $\log(1+x_{ij})$\\
+\hline
+\textbf{Entropy} & $\Bigg(1+\dfrac{\sum_{i=1}^{n}p(x_{ij})\log(p(x_{ij}))}{\log{n}}\Bigg)\cdot log(1+x_{ij})$\\
+\hline
+\end{tabular}
+\end{table}
+ 
+\subsection{Feature Selection}
+Due to the fact that fact that the distinct
+words in our dataset was very large (exceeding 60000),
+it was necessary to perform dimensionality reduction 
+to our data.
+Besides the standard dimensionality reduction techniques
+of LDA and PCA, we also applied dimensionality reduction
+according to the statistical characteristics of 
+our features among different classes.
+
+In particular, we constructed a matrix $Z\in 
+\mathbb{R}^{|C|\times |V|}$, where each element
+$z_{ij}$ of that matrix refers to the frequency
+of occurrence of term $t_j$ in class $c_i$.
+%Hence $z_{ij}=\frac{\text{\# of occurrences of } t_j\text{ in }c_i}{\text{\# of terms of ci}}$
+After that, for each column of matrix Z, we 
+calculated the variance among the different 
+classes and we selected the features with 
+the highest variance value.
+This way, we kept the features that best
+differentiate one class from another.
+It should be noted that for the best possible
+results, this method was used in conjunction with
+LDA or PCA.
+
+\subsection{Classification Models}
+In order to classify our articles into the different
+categories, we used a wide variety of models,
+such as SVM, RandomForest, GMM, NB, KNN, ANN, CNN.
+Out of those, we implemented ourselves KNN, Naive
+Bayes and ANN.
+Apart from the above models, we also implemented
+a classifier that categorizes each sample to the
+class of which the mean value is closest to the
+sample, which we will refer to as MEAN Classifier.
+
+It should be noted that for the implementation of
+GMM, we trained a separate Gaussian Mixture Model
+for each class and we calculated the logarithmic
+probability of an article belonging to a certain 
+class by summing the individual log-likelihood
+probabilities from every Gaussian component.
+
+Also, for algorithms like KNN and MEAN Classifier,
+we implemented several different distance metrics,
+such as euclidean distance, mahalanobis distance
+and cosine similarity measure.
+These distance metrics are shown on the table
+below.
+\begin{table}[!h]
+	% increase table row spacing, adjust to taste
+	\renewcommand{\arraystretch}{2.5}
+	% if using array.sty, it might be a good idea to tweak the value of
+	% \extrarowheight as needed to properly center the text within the cells
+	\caption{Distance Metrics}
+	\label{transformation}
+	\centering
+\begin{tabular}{|c|c|}
+	\hline
+	Distance & Forumula\\
+	\hline
+	\textbf{Euclidean} & $d(x,y) = ||x-y||_2$\\
+	\hline
+	\textbf{Mahalanobis} & $d(x,y) = \sqrt{(x-y)^TS^{-1}(x-y)}$\\
+	\hline
+	\textbf{Cosine} & $d(x,y) = \frac{xy^T}{||x||_2||y||_2}$\\
+	\hline
+\end{tabular}
+\end{table}
+
+\section{Experiments}
+\subsection{Individual Models}
+In our experiment, we measured the accuracy of
+our models (GMM,KNN,MEAN,RandomForest,SVM) for
+different sets of parameters in order to determine
+the best parameters for each model.
+The respective results are shown in the figures
+below.
+% \begin{figure}[!h]
+% 	\centering
+% 	\includegraphics[width=3.2in]{./img/ANN.eps}
+% 	\caption{ANN}
+% 	\label{ANN}
+% \end{figure}
+% \begin{figure}[!h]
+% 	\centering
+% 	\includegraphics[width=3.2in]{./img/CNN.eps}
+% 	\caption{CNN}
+% 	\label{CNN}
+% \end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.0in]{./img/GMM.eps}
+	\caption{GMM}
+	\label{GMM}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.6in]{./img/KNN.eps}
+	\caption{KNN}
+	\label{KNN}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.2in]{./img/MEAN.eps}
+	\caption{MEAN}
+	\label{MEAN}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3in]{./img/RandomForest.eps}
+	\caption{Random Forest}
+	\label{RandomForest}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.2in]{./img/SVM.eps}
+	\caption{SVM}
+	\label{SVM}
+\end{figure}
+
+\newpage
+\leavevmode
+\\\\\
+\subsection{Overall Comparison}
+After determining the best set of parameters
+for every model, we compared the models 
+with one another as shown in the figures below.
+The comparisons were conducted for different reduction
+methods (LDA-PCA) and different tfidf transformations
+(binary, entropy and log).
+Especially in the case of entropy transformation,
+we conducted both LDA and PCA in order to compare
+the results.
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.4in]{./img/all_models_pca_70_entropy.eps}
+	\caption{PCA with entropy transformation}
+	\label{PCAentropy}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.4in]{./img/all_models_lda_entropy.eps}
+	\caption{LDA with entropy transformation}
+	\label{LDAentropy}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.4in]{./img/all_models_pca_70_binary.eps}
+	\caption{PCA with binary transformation}
+	\label{PCAbin}
+\end{figure}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=3.4in]{./img/all_models_pca_70_log.eps}
+	\caption{PCA with log transformation}
+	\label{PCAlog}
+\end{figure}
+
+\section{Conclusion}
+\subsection{Individual Models}
+\subsubsection{GMM}
+For the GMM classifier, as seen on figure 
+\ref{GMM} we can observe that the 
+best accuracy  is achieved for 1 
+gaussian component.
+However, for a single gaussian component,
+the GMM model is effectively degenerated
+into a Gaussian NB classifier.
+Additionaly, the second best performance
+is achieved for 15 guassian components
+and a full covariance matrix.
+Nevertheless, in cases we have limited data, 
+it is generally preferable to use a
+diagonal covariance matrix because it requires 
+a smaller amount of parameters
+for training.
+
+\subsubsection{KNN}
+For the KNN classifier, it is evident that
+the best accuracy is observed for 10 neighbors
+and a cosine similarity distance metric.
+ 
 %\section{State-of-the-art}
 %The conclusion goes here.
 
