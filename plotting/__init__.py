@@ -9,7 +9,7 @@ from models.classification.gmm import GMM
 from models.classification.mean import MEAN_CLASSIFIER
 
 from matplotlib import pyplot as plt
-
+from sklearn.model_selection import KFold
 import numpy as np
 from numpy.linalg import norm
 from multiprocessing.pool import ThreadPool
@@ -53,8 +53,8 @@ class Plotter:
 
 		# Reduce dimensions
 		print("Reducing dimensions...")
-		# X_train = prep.reduce_dims_train(X_train,labels_train,'LDA',n_components=70,solver='svd')
-		self.X_train = self.prep.reduce_dims_train(self.X_train, self.labels_train, 'PCA', n_components=70)
+		self.X_train = self.prep.reduce_dims_train(self.X_train,self.labels_train,'LDA',n_components=70,solver='svd')
+		#self.X_train = self.prep.reduce_dims_train(self.X_train, self.labels_train, 'PCA', n_components=70)
 		self.X_test = self.prep.reduce_dims_test(self.X_test)
 
 
@@ -64,6 +64,118 @@ class Plotter:
 		self.y_test = self.labels_test
 		self.y_train = self.prep.encode_labels(self.labels_train)
 		self.y_test = self.prep.encode_labels(self.labels_test)
+
+	def run_model(self,prep,X_train,y_train,X_test,y_test,params):
+
+		print("Training "+params['method'])
+		prep.train_model(X_train, y_train, **params)
+
+		print("Evaluating "+params['method'])
+		accuracy = prep.evaluate_model(X_test, y_test)
+
+		return accuracy
+
+
+	def train_and_evaluate_all(self,param_list, articles_train, articles_test, labels_train, labels_test):
+
+		# Create dictionary
+		print("Creating Dictionary...")
+		dct = self.prep.create_word_dictionary(articles_train)
+		print(len(dct))
+
+		# Create tfidf table
+		print("Creating tfidf matrix...")
+		X_train = self.prep.create_tfidf_train(dct, articles_train, labels_train)
+		X_test = self.prep.create_tfidf_test(dct, articles_test)
+
+		# Tranform data
+		print("Transforming data...")
+		X_train = self.prep.transform_train(X_train, method='entropy')
+		X_test = self.prep.transform_test(X_test)
+
+		# Reduce dimensions
+		print("Reducing dimensions...")
+		X_train = self.prep.reduce_dims_train(X_train,labels_train,'LDA',n_components=70,solver='svd')
+		#X_train = self.prep.reduce_dims_train(X_train, labels_train, 'PCA', n_components=70)
+		X_test = self.prep.reduce_dims_test(X_test)
+
+
+		print("Decoding Labels...")
+		y_train = self.prep.encode_labels(labels_train)
+		y_test = self.prep.encode_labels(labels_test)
+
+
+		print("Training Models...")
+
+
+
+		parallel = param_list[:-2]
+		non_parallel = param_list[-2:]
+		parallel_results,non_parallel_results = [],[]
+
+		parallel_handles = [self.pool.apply_async(self.run_model,(Preprocessor(ignore_pickles=True,strict=False),
+							X_train,y_train,X_test,y_test,param)) for param in parallel]
+
+
+		for params in non_parallel:
+			non_parallel_results.append(self.run_model(self.prep,X_train,y_train,X_test,y_test,params))
+
+		parallel_results = [handle.get() for handle in parallel_handles]
+
+		return np.array(parallel_results+non_parallel_results)
+
+
+
+
+	def run_all_kfold(self):
+
+		prep = Preprocessor(ignore_pickles=True, strict=False, n_bigrams=3000, bigram_min_freq=5)
+
+		# Preprocess
+		print("Preprocessing...")
+		articles, labels = prep.parse_files(('train', 'test'))
+
+		N = 10000
+		articles, labels = articles[:N], labels[:N]
+		articles, labels = np.array(articles), np.array(labels)
+
+		kf = KFold(n_splits=5, shuffle=True)
+
+		param_list = [
+			{'method':'SVM','kernel': 'rbf', 'C': 1.5, 'gamma': 'scale', 'decision_function_shape': 'ovo'},
+			{'method':'RandomForest','n_estimators':35},
+			{'method':'MEAN','metric': 'mahalanobis','metric_params':{'V': np.cov(self.X_train, rowvar=False)}},
+			{'method':'GMM','covariance_type':'full', 'n_components': 15},
+			{'method':'KNN','n_neighbors': 10, 'metric': 'cosine'},
+			{'method':'ANN','epochs': 40, 'batch_size': 20},
+			{'method':'CNN','epochs': 40, 'batch_size': 10},
+		]
+
+		accuracies = []
+
+		i = 0
+		for train_index, test_index in kf.split(articles, labels):
+			articles_train, articles_test = articles[train_index], articles[test_index]
+			labels_train, labels_test = labels[train_index], labels[test_index]
+
+			print("----- [Pass " + str(i+1) + "] -------")
+
+			results = self.train_and_evaluate_all(param_list,articles_train,articles_test,labels_train,labels_test)
+
+			accuracies.append(results)
+
+			i += 1
+
+		mean_accuracies = np.mean(np.array(accuracies),axis=0)
+
+		for param,accuracy in zip(param_list,list(mean_accuracies)):
+			print("Model: "+param['method'],", Accuracy: %.2f%%" % (accuracy*100))
+
+		labels = [params['method'] for params in param_list]
+
+		excluded_params = ['method','gamma','decision_function_shape','metric_params']
+
+		self.plot_all_models("All models",param_list,mean_accuracies,excluded_params,labels)
 
 
 	def KNN(self):
@@ -373,7 +485,7 @@ class Plotter:
 
 	def plot_all_models(self,name,param_list,accuracies,excluded_params,labels=['KNN']*9,file_name='all_models.eps'):
 
-		print(param_list,accuracies)
+		#print(param_list,accuracies)
 		excluded_params.append('method')
 
 		y_labels = []
@@ -401,7 +513,7 @@ class Plotter:
 
 		ax1.set_title(name)
 
-		ax1.set_xlim([0, 100])
+		ax1.set_xlim([0, 150])
 		# ax1.xaxis.set_major_locator(MaxNLocator(11))
 		ax1.xaxis.grid(True, linestyle='--', which='major',
 					   color='grey', alpha=.25)
@@ -470,7 +582,10 @@ class Plotter:
 			#					 ha='left', va='center',
 			#					 color='black', clip_on=True)
 
-			ax1.text(-25,yloc-1.1,y)
+			if y.count('\n') == 1:
+				ax1.text(-40, yloc - 0.6, y)
+			else:
+				ax1.text(-40, yloc - 0.8, y)
 
 			rect_labels.append(label)
 
