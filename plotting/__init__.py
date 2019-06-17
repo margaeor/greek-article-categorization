@@ -22,13 +22,13 @@ def cosine(x, y):
 
 class Plotter:
 
-	def __init__(self,preprocess=True,threads=5):
+	def __init__(self,preprocess=True,threads=5,ignore_pickles=False):
 
 		# Initialize the thread pool used for parallel processing
 		self.pool = ThreadPool(processes=threads)
 
 		# Initialize the main preprocessor object
-		self.prep = Preprocessor(ignore_pickles=True,strict=False,n_bigrams=3000,bigram_min_freq=10)
+		self.prep = Preprocessor(ignore_pickles=ignore_pickles,strict=False,n_bigrams=3000,bigram_min_freq=10)
 
 		if preprocess:
 			self.preprocess()
@@ -268,7 +268,7 @@ class Plotter:
 
 		excluded_params = ['metric_params']
 
-		self.__plot_continuous_model(name, param_list, accuracies, excluded_params, 'n_estimators',show)
+		self.__plot_continuous_model(name, param_list, accuracies, excluded_params, 'n_estimators',show=show)
 
 
 	# Try MEAN model for different sets of parameters and create an accuracy plot
@@ -285,7 +285,7 @@ class Plotter:
 		accuracies = self.__grid_search(param_list, name)
 		excluded_params = ['metric_params']
 
-		self.__plot_discrete_model(name, param_list, accuracies, excluded_params,show)
+		self.__plot_discrete_model(name, param_list, accuracies, excluded_params,show=show)
 
 	# Try ANN model for different sets of parameters and create an accuracy plot
 	def ANN(self,show=True):
@@ -311,7 +311,7 @@ class Plotter:
 
 		excluded_params = ['metric_params','epochs']
 
-		self.__plot_continuous_model(name,param_list,accuracies,excluded_params,'learning_rate',show)
+		self.__plot_continuous_model(name,param_list,accuracies,excluded_params,'learning_rate',show=show)
 
 	# Try CNN model for different sets of parameters and create an accuracy plot
 	def CNN(self,show=True):

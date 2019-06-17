@@ -338,6 +338,9 @@ class Preprocessor(object):
 		self.selected_dims = var.argsort()[-n_dims:][::-1]
 
 		self.selected_words = [(self.id2word[id],var[id]) for id in self.selected_dims]
+		bigram_index = len(self.word_dict)-len(self.bigrams)
+
+		self.bigram_words = [(self.id2word[id],var[id]) for id in var[bigram_index:].argsort()[::-1]]
 		#print(selected_words)
 
 		m_reduced = m[:,self.selected_dims]
