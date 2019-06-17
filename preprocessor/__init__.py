@@ -457,6 +457,8 @@ class Preprocessor(object):
 
 		elif method == 'log':
 			l = np.log(1+tfidf)
+		elif method == 'none':
+			l = tfidf
 
 		self.pickle_data(pickle_file,l)
 
