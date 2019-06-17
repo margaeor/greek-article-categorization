@@ -76,12 +76,14 @@ class Preprocessor(object):
 
 		self.id2word = None
 		self.word_dict = None
+		self.selected_words = []
 
 		# Variables used for bigram features
 		self.use_bigrams = n_bigrams>0
 		self.n_bigrams = n_bigrams
 		self.bigram_min_freq = bigram_min_freq
 		self.bigrams = []
+		self.best_bigram_scores = []
 
 		# Compile regexes that clear text for better performance
 		self.clear_regexes =[
@@ -131,8 +133,8 @@ class Preprocessor(object):
 		numpy_matrix = np.array([])
 		metadata = []
 
-		if self.ignore_pickles:
-			return
+		#if self.ignore_pickles:
+		#	return
 
 		if type(data) == np.ndarray:
 			numpy_matrix = data
@@ -156,7 +158,7 @@ class Preprocessor(object):
 		# the array to disc
 		if len(metadata[0]) > 0:
 			with open(data_file, 'wb+') as fh:
-				fh.write(numpy_matrix.data)
+				fh.write(np.ascontiguousarray(numpy_matrix).data)
 
 
 
@@ -174,7 +176,9 @@ class Preprocessor(object):
 			with open(pickle_file, 'rb') as f:
 				# The protocol version used is detected automatically, so we do not
 				# have to specify it.
-				return pickle.load(f)
+				self.best_bigram_scores,articles,labels = pickle.load(f)
+				self.bigrams = set([b for b,s in self.best_bigram_scores])
+				return articles,labels
 
 		articles = []
 		labels = []
@@ -200,15 +204,17 @@ class Preprocessor(object):
 							#	print(str(i)+" texts parsed")
 							i+=1
 
+		best_bigram_scores = []
 		if self.use_bigrams:
 			if is_train:
 				bigram_measures = nltk.collocations.BigramAssocMeasures()
 				finder = BigramCollocationFinder.from_documents(articles)
 				finder.apply_freq_filter(self.bigram_min_freq)
-				best_bigrams = finder.nbest(bigram_measures.pmi, self.n_bigrams)
+				best_bigram_scores = [(b,s) for b, s in finder.score_ngrams(bigram_measures.pmi)[:self.n_bigrams]]
+				best_bigrams = [b for b,s in best_bigram_scores]
 				self.bigrams = set(best_bigrams)
-
-				print("Best bigrams:",best_bigrams)
+				self.best_bigram_scores = best_bigram_scores
+				#print("Best bigrams:",best_bigrams)
 
 			articles = [article + [b[0]+" "+b[1] for b in nltk.bigrams(article) if b in self.bigrams]
 							for article in articles]
@@ -218,7 +224,7 @@ class Preprocessor(object):
 
 		with open(pickle_file, 'wb') as f:
 			# Pickle the 'data' dictionary using the highest protocol available.
-			pickle.dump((articles,labels), f, pickle.HIGHEST_PROTOCOL)
+			pickle.dump((best_bigram_scores,articles,labels), f, pickle.HIGHEST_PROTOCOL)
 
 		return articles, labels
 
@@ -293,7 +299,7 @@ class Preprocessor(object):
 		data = self.unpickle_data(pickle_file)
 
 		if len(data) > 0:
-			tfidf,self.idf = data
+			tfidf,self.selected_words,self.idf = data
 			return tfidf
 
 		n_words = max(word_dict.values())
@@ -331,6 +337,8 @@ class Preprocessor(object):
 
 		self.selected_dims = var.argsort()[-n_dims:][::-1]
 
+		self.selected_words = [(self.id2word[id],var[id]) for id in self.selected_dims]
+		#print(selected_words)
 
 		m_reduced = m[:,self.selected_dims]
 
@@ -348,7 +356,7 @@ class Preprocessor(object):
 
 		#self.calc_mutual_information(tfidf,m_reduced)
 
-		self.pickle_data(pickle_file,(tfidf,idf))
+		self.pickle_data(pickle_file,(tfidf,self.selected_words,idf))
 
 		return tfidf
 

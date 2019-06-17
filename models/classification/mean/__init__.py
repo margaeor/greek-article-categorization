@@ -47,9 +47,9 @@ class MEAN_CLASSIFIER:
 		for i in range(self.n_classes):
 
 			sample_mask = (self.y_train==i)
-
 			# Calculate class mean
 			mu[i,:] = np.mean(self.X_train[sample_mask,:],axis=0)
+
 
 		self.mu = mu
 

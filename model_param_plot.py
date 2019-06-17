@@ -3,16 +3,23 @@ import pickle
 
 if __name__ == '__main__':
 
-	plotter = Plotter()
+	plotter = Plotter(threads=5)
 
-	methods = ['MEAN','RandomForest','GMM','SVM','KNN','ANN','CNN']
+	#plotter.visualize_bigrams(20)
+	#print(plotter.prep.best_bigram_scores)
 
-	#for method in methods:
-	#	getattr(plotter,method)()
-	#	print("Running "+method)
+	#plotter.visualize_descriptive_terms(200)
+	#print(plotter.prep.selected_words)
+
+	methods = ['MEAN','GMM','RandomForest','SVM','KNN']
+
+	for method in methods:
+		print("Running " + method)
+		getattr(plotter,method)(show=False)
 
 
-	plotter.run_all_kfold()
+
+	#plotter.run_all_kfold()
 
 	#with open('a.out','rb') as f:
 	#	a,b,c,d,e = pickle.load(f)

@@ -13,6 +13,7 @@ from sklearn.model_selection import KFold
 import numpy as np
 from numpy.linalg import norm
 from multiprocessing.pool import ThreadPool
+from wordcloud import WordCloud
 
 
 def cosine(x, y):
@@ -21,15 +22,31 @@ def cosine(x, y):
 
 class Plotter:
 
-	def __init__(self):
+	def __init__(self,preprocess=True,threads=5):
 
-		self.pool = ThreadPool(processes=5)
+		# Initialize the thread pool used for parallel processing
+		self.pool = ThreadPool(processes=threads)
 
-		self.prep = Preprocessor(ignore_pickles=True,n_bigrams=3000,bigram_min_freq=5)
+		# Initialize the main preprocessor object
+		self.prep = Preprocessor(ignore_pickles=True,strict=False,n_bigrams=3000,bigram_min_freq=10)
 
-		print("Preprocessing...")
-		self.articles_train, self.labels_train = self.prep.parse_files('train', is_train=True)
-		self.articles_test, self.labels_test = self.prep.parse_files('test')
+		if preprocess:
+			self.preprocess()
+
+
+	# Method used to call preprocessor so as to preprocess our data
+	def preprocess(self,verbose=True):
+
+		if verbose: print("Preprocessing...")
+		thres = 4652
+
+		#self.articles_train, self.labels_train = self.prep.parse_files('train', is_train=True)
+		#self.articles_test, self.labels_test = self.prep.parse_files('test', is_train=False)
+		#print(len(ar))
+
+		self.articles_all, self.labels_all = self.prep.parse_files(('train','test'), is_train=True)
+		self.articles_train, self.labels_train = self.articles_all[:thres],self.labels_all[:thres]
+		self.articles_test, self.labels_test = self.articles_all[thres:],self.labels_all[thres:]
 
 		N = 10000
 		self.articles_train, self.labels_train = self.articles_train[:N], self.labels_train[:N]
@@ -38,34 +55,38 @@ class Plotter:
 		# print(articles_train[2559])
 
 		# Create dictionary
-		print("Creating Dictionary...")
+		if verbose: print("Creating Dictionary...")
 		self.dct = self.prep.create_word_dictionary(self.articles_train)
 
 		# Create tfidf table
-		print("Creating tfidf matrix...")
+		if verbose: print("Creating tfidf matrix...")
 		self.X_train = self.prep.create_tfidf_train(self.dct, self.articles_train, self.labels_train,n_dims=3000)
 		self.X_test = self.prep.create_tfidf_test(self.dct, self.articles_test)
 
+
 		# Tranform data
-		print("Transforming data...")
+		if verbose: print("Transforming data...")
 		self.X_train = self.prep.transform_train(self.X_train, method='entropy')
 		self.X_test = self.prep.transform_test(self.X_test)
 
 		# Reduce dimensions
-		print("Reducing dimensions...")
-		self.X_train = self.prep.reduce_dims_train(self.X_train,self.labels_train,'LDA',n_components=70,solver='svd')
-		#self.X_train = self.prep.reduce_dims_train(self.X_train, self.labels_train, 'PCA', n_components=70)
+		if verbose: print("Reducing dimensions...")
+		#self.X_train = self.prep.reduce_dims_train(self.X_train,self.labels_train,'LDA',n_components=70,solver='svd')
+		self.X_train = self.prep.reduce_dims_train(self.X_train, self.labels_train, 'PCA', n_components=70)
 		self.X_test = self.prep.reduce_dims_test(self.X_test)
 
-
 		# Decode the labels and convert them to numbers
-		print("Decoding Labels...")
+		if verbose: print("Decoding Labels...")
 		self.y_train = self.labels_train
 		self.y_test = self.labels_test
 		self.y_train = self.prep.encode_labels(self.labels_train)
 		self.y_test = self.prep.encode_labels(self.labels_test)
 
-	def run_model(self,prep,X_train,y_train,X_test,y_test,params):
+
+
+
+	# Evaluate the accuracy of a model with certain parameters
+	def __run_model(self, prep, X_train, y_train, X_test, y_test, params):
 
 		print("Training "+params['method'])
 		prep.train_model(X_train, y_train, **params)
@@ -75,50 +96,49 @@ class Plotter:
 
 		return accuracy
 
-
-	def train_and_evaluate_all(self,param_list, articles_train, articles_test, labels_train, labels_test):
+	# Helper method used to train and evaluate all given models for a particular set
+	# of training and test data
+	def __train_and_evaluate_all(self,param_list, articles_train, articles_test, labels_train, labels_test,verbose=True):
 
 		# Create dictionary
-		print("Creating Dictionary...")
+		if verbose: print("Creating Dictionary...")
 		dct = self.prep.create_word_dictionary(articles_train)
-		print(len(dct))
 
 		# Create tfidf table
-		print("Creating tfidf matrix...")
+		if verbose: print("Creating tfidf matrix...")
 		X_train = self.prep.create_tfidf_train(dct, articles_train, labels_train)
 		X_test = self.prep.create_tfidf_test(dct, articles_test)
 
 		# Tranform data
-		print("Transforming data...")
+		if verbose: print("Transforming data...")
 		X_train = self.prep.transform_train(X_train, method='entropy')
 		X_test = self.prep.transform_test(X_test)
 
 		# Reduce dimensions
-		print("Reducing dimensions...")
-		X_train = self.prep.reduce_dims_train(X_train,labels_train,'LDA',n_components=70,solver='svd')
-		#X_train = self.prep.reduce_dims_train(X_train, labels_train, 'PCA', n_components=70)
+		if verbose: print("Reducing dimensions...")
+		#X_train = self.prep.reduce_dims_train(X_train,labels_train,'LDA',n_components=70,solver='svd')
+		X_train = self.prep.reduce_dims_train(X_train, labels_train, 'PCA', n_components=70)
 		X_test = self.prep.reduce_dims_test(X_test)
 
 
-		print("Decoding Labels...")
+		if verbose: print("Decoding Labels...")
 		y_train = self.prep.encode_labels(labels_train)
 		y_test = self.prep.encode_labels(labels_test)
 
 
-		print("Training Models...")
-
-
-
+		if verbose: print("Training Models...")
 		parallel = param_list[:-2]
 		non_parallel = param_list[-2:]
 		parallel_results,non_parallel_results = [],[]
 
-		parallel_handles = [self.pool.apply_async(self.run_model,(Preprocessor(ignore_pickles=True,strict=False),
-							X_train,y_train,X_test,y_test,param)) for param in parallel]
+		# Function handles returned by the parallel pool.
+		# Used for models that support multi-threading (all models except ANN and CNN)
+		parallel_handles = [self.pool.apply_async(self.__run_model, (Preprocessor(ignore_pickles=True, strict=False),
+																	 X_train, y_train, X_test, y_test, param)) for param in parallel]
 
-
+		# Run non-parallel models (ANN and CNN)
 		for params in non_parallel:
-			non_parallel_results.append(self.run_model(self.prep,X_train,y_train,X_test,y_test,params))
+			non_parallel_results.append(self.__run_model(self.prep, X_train, y_train, X_test, y_test, params))
 
 		parallel_results = [handle.get() for handle in parallel_handles]
 
@@ -126,8 +146,32 @@ class Plotter:
 
 
 
+	def visualize_bigrams(self,limit=10,path='./report/img/bigrams.png'):
+		bigram_dict = {b[0]+" "+b[1]:s for b,s in self.prep.best_bigram_scores[:limit]}
+		wc = WordCloud(width = 2400, height = 2400,background_color ='white')
+		wc_img = wc.generate_from_frequencies(bigram_dict)
+		plt.figure(figsize=(10, 10))
+		plt.imshow(wc_img, interpolation="bilinear")
+		plt.axis("off")
+		wc.to_file(path)
+		plt.show()
 
-	def run_all_kfold(self):
+	def visualize_descriptive_terms(self,limit=10,path='./report/img/terms.png'):
+		tmp = self.prep.selected_words
+		tmp[0] = (tmp[0][0],tmp[0][1]/6)
+		term_dict = {t:s for t,s in tmp[:limit]}
+		wc = WordCloud(width = 2400, height = 2400,background_color ='white')
+		wc_img = wc.generate_from_frequencies(term_dict)
+		plt.figure(figsize=(10, 10))
+		plt.imshow(wc_img, interpolation="bilinear")
+		plt.axis("off")
+		wc.to_file(path)
+		plt.show()
+
+
+	# Method used to run kfold validation for every classifier with specific params
+	# and create a collective plot for all models to compare accuracy
+	def run_all_kfold(self,path='./report/img/all_models.eps'):
 
 		prep = Preprocessor(ignore_pickles=True, strict=False, n_bigrams=3000, bigram_min_freq=5)
 
@@ -148,8 +192,8 @@ class Plotter:
 			{'method':'MEAN','metric': 'mahalanobis','metric_params':{'V': np.cov(self.X_train, rowvar=False)}},
 			{'method':'GMM','covariance_type':'full', 'n_components': 15},
 			{'method':'KNN','n_neighbors': 10, 'metric': 'cosine'},
-			{'method':'ANN','epochs': 40, 'batch_size': 20},
-			{'method':'CNN','epochs': 40, 'batch_size': 10},
+			#{'method':'ANN','epochs': 40, 'batch_size': 20},
+			#{'method':'CNN','epochs': 40, 'batch_size': 10},
 		]
 
 		accuracies = []
@@ -161,7 +205,7 @@ class Plotter:
 
 			print("----- [Pass " + str(i+1) + "] -------")
 
-			results = self.train_and_evaluate_all(param_list,articles_train,articles_test,labels_train,labels_test)
+			results = self.__train_and_evaluate_all(param_list,articles_train,articles_test,labels_train,labels_test)
 
 			accuracies.append(results)
 
@@ -176,10 +220,11 @@ class Plotter:
 
 		excluded_params = ['method','gamma','decision_function_shape','metric_params']
 
-		self.plot_all_models("All models",param_list,mean_accuracies,excluded_params,labels)
+		self.__plot_all_models("All models",param_list,mean_accuracies,excluded_params,labels,path)
 
 
-	def KNN(self):
+	# Try KNN model for different sets of parameters and create an accuracy plot
+	def KNN(self,show=True):
 
 		param_list = [
 			{'n_neighbors': 5,'metric':'euclidean'},
@@ -197,12 +242,13 @@ class Plotter:
 
 		name = 'KNN'
 
-		accuracies = self.grid_search(param_list, name)
+		accuracies = self.__grid_search(param_list, name)
 
-		self.plot_model(name,param_list,accuracies,excluded_params)
-		#self.plot_all_models('Model Comparison',param_list,accuracies,excluded_params)
+		self.__plot_discrete_model(name, param_list, accuracies, excluded_params,show)
 
-	def RandomForest(self):
+
+	# Try RandomForest model for different sets of parameters and create an accuracy plot
+	def RandomForest(self,show=True):
 
 		n_range = range(20, 80, 3)
 
@@ -214,7 +260,7 @@ class Plotter:
 
 		flattened_params = [a for params in param_list for a in params]
 
-		accuracies = self.grid_search(flattened_params, name)
+		accuracies = self.__grid_search(flattened_params, name)
 
 		accuracies = np.array(accuracies)
 
@@ -222,10 +268,11 @@ class Plotter:
 
 		excluded_params = ['metric_params']
 
-		self.plot_continuous_model(name, param_list, accuracies, excluded_params, 'n_estimators')
+		self.__plot_continuous_model(name, param_list, accuracies, excluded_params, 'n_estimators',show)
 
 
-	def MEAN(self):
+	# Try MEAN model for different sets of parameters and create an accuracy plot
+	def MEAN(self,show=True):
 
 		param_list = [
 			{'metric':'euclidean'},
@@ -235,13 +282,13 @@ class Plotter:
 
 		name = 'MEAN'
 
-		accuracies = self.grid_search(param_list, name)
+		accuracies = self.__grid_search(param_list, name)
 		excluded_params = ['metric_params']
 
-		self.plot_model(name,param_list,accuracies,excluded_params)
-		#self.plot_all_models('Model Comparison',param_list,accuracies,excluded_params)
+		self.__plot_discrete_model(name, param_list, accuracies, excluded_params,show)
 
-	def ANN(self):
+	# Try ANN model for different sets of parameters and create an accuracy plot
+	def ANN(self,show=True):
 
 		l_vals = np.arange(0.001,1,0.2)
 
@@ -256,7 +303,7 @@ class Plotter:
 
 		flattened_params = [a for params in param_list for a in params]
 
-		accuracies = self.grid_search(flattened_params, name, multi_threading=False)
+		accuracies = self.__grid_search(flattened_params, name, multi_threading=False)
 
 		accuracies = np.array(accuracies)
 
@@ -264,9 +311,10 @@ class Plotter:
 
 		excluded_params = ['metric_params','epochs']
 
-		self.plot_continuous_model(name,param_list,accuracies,excluded_params,'learning_rate')
+		self.__plot_continuous_model(name,param_list,accuracies,excluded_params,'learning_rate',show)
 
-	def CNN(self):
+	# Try CNN model for different sets of parameters and create an accuracy plot
+	def CNN(self,show=True):
 
 		l_vals = np.arange(0.001,1,0.2)
 
@@ -281,7 +329,7 @@ class Plotter:
 
 		flattened_params = [a for params in param_list for a in params]
 
-		accuracies = self.grid_search(flattened_params, name, multi_threading=False)
+		accuracies = self.__grid_search(flattened_params, name, multi_threading=False)
 
 		accuracies = np.array(accuracies)
 
@@ -289,9 +337,10 @@ class Plotter:
 
 		excluded_params = ['metric_params','epochs']
 
-		self.plot_continuous_model(name,param_list,accuracies,excluded_params,'learning_rate')
+		self.__plot_continuous_model(name,param_list,accuracies,excluded_params,'learning_rate',show)
 
-	def GMM(self):
+	# Try GMM model for different sets of parameters and create an accuracy plot
+	def GMM(self,show=True):
 
 		n_range = range(1,30)
 
@@ -304,7 +353,7 @@ class Plotter:
 
 		flattened_params = [a for params in param_list for a in params]
 
-		accuracies = self.grid_search(flattened_params, name)
+		accuracies = self.__grid_search(flattened_params, name)
 
 		accuracies = np.array(accuracies)
 
@@ -312,10 +361,10 @@ class Plotter:
 
 		excluded_params = ['metric_params']
 
-		self.plot_continuous_model(name,param_list,accuracies,excluded_params,'n_components')
+		self.__plot_continuous_model(name,param_list,accuracies,excluded_params,'n_components',show)
 
-
-	def SVM(self):
+	# Try SVM model for different sets of parameters and create an accuracy plot
+	def SVM(self,show=True):
 		param_list = [
 			{'kernel': 'rbf', 'C': 0.5,'gamma':'scale', 'decision_function_shape':'ovo'},
 			{'kernel': 'rbf', 'C': 1.0,'gamma':'scale', 'decision_function_shape':'ovo'},
@@ -330,14 +379,17 @@ class Plotter:
 
 		name = 'SVM'
 
-		accuracies = self.grid_search(param_list,name)
+		accuracies = self.__grid_search(param_list, name)
 
 		excluded_params = ['gamma','decision_function_shape']
 
-		self.plot_model(name, param_list, accuracies, excluded_params)
+		self.__plot_discrete_model(name, param_list, accuracies, excluded_params,show)
 
 
-	def grid_search(self,param_list,name,multi_threading=True):
+	# Try different combinations of parameters and measure accuracy for each
+	# set of parameters.
+	# Supports multi-threading for faster results.
+	def __grid_search(self, param_list, name, multi_threading=True):
 
 		accuracies = []
 
@@ -345,22 +397,21 @@ class Plotter:
 			params['method'] = name
 			prep = Preprocessor(ignore_pickles=True,n_bigrams=3000,bigram_min_freq=5)
 			if multi_threading:
-				accuracies.append(self.pool.apply_async(self.train_and_evaluate,(prep,params)))
+				accuracies.append(self.pool.apply_async(self.__train_and_evaluate, (prep, params)))
 			else:
-				accuracies.append(self.train_and_evaluate(prep, params))
-			#print(params)
+				accuracies.append(self.__train_and_evaluate(prep, params))
 
 		if multi_threading:
 			accuracies = [a.get() for a in accuracies]
 
 		return accuracies
 
-
-	def plot_model(self,name,param_list,accuracies,excluded_params):
+	# Make a model accuracy plot for different model parameters
+	def __plot_discrete_model(self, name, param_list, accuracies, excluded_params,show=True,path=None):
 
 		excluded_params.append('method')
 
-		file_name = name+'.eps'
+		path = './report/img/'+name + '.eps' if path is None else path
 
 		y_labels = []
 		for params in param_list:
@@ -384,7 +435,6 @@ class Plotter:
 		ax1.set_title(name)
 
 		ax1.set_xlim([0, 100])
-		#ax1.xaxis.set_major_locator(MaxNLocator(11))
 		ax1.xaxis.grid(True, linestyle='--', which='major',
 					   color='grey', alpha=.25)
 
@@ -394,8 +444,6 @@ class Plotter:
 		# Set the right-hand Y-axis ticks and labels
 		ax2 = ax1.twinx()
 
-		#scoreLabels = [format_score(scores[k].score, k) for k in testNames]
-
 		# set the tick locations
 		ax2.set_yticks(100*np.array(accuracies))
 		# make sure that the limits are set equally on both yaxis so the
@@ -403,9 +451,6 @@ class Plotter:
 		ax2.set_ylim(ax1.get_ylim())
 
 		# set the tick labels
-		#ax2.set_yticklabels(scoreLabels)
-
-		#ax2.set_ylabel('Test Scores')
 
 		rect_labels = []
 		for acc,rect in zip(accuracies,rects):
@@ -415,19 +460,6 @@ class Plotter:
 			width = int(rect.get_width())
 
 			rankStr = "%.1f %%" % (100*acc)
-			# The bars aren't wide enough to print the ranking inside
-			# if width < 40:
-			# 	# Shift the text to the right side of the right edge
-			# 	xloc = 5
-			# 	# Black against white background
-			# 	clr = 'black'
-			# 	align = 'left'
-			# else:
-			# 	# Shift the text to the left side of the right edge
-			# 	xloc = -5
-			# 	# White on magenta
-			# 	clr = 'white'
-			# 	align = 'right'
 
 			xloc = -5
 			# White on magenta
@@ -444,14 +476,15 @@ class Plotter:
 
 		ax1.set_xlabel('Accuracy')
 
-		plt.savefig('./report/img/' + file_name)
+		plt.savefig(path)
 
-		plt.show()
+		if show: plt.show()
 
 
-	def plot_continuous_model(self,name,param_list,accuracies,excluded_params,continuous_var):
+	# Private method used to create a line plot for the parameters of a model
+	def __plot_continuous_model(self,name,param_list,accuracies,excluded_params,continuous_var,show=True,path=None):
 
-		file_name = name + '.eps'
+		path = './report/img/'+name + '.eps' if path is None else path
 
 		legend_texts = []
 
@@ -469,22 +502,17 @@ class Plotter:
 			plt.legend(legend_texts)
 
 
-		#plt.annotate('(%.2f,%.2f)' % (best_threshold, max_accuracy), xy=(best_threshold, max_accuracy),
-		#			 xytext=(best_threshold, max_accuracy + 0.3),
-		#			 arrowprops=dict(facecolor='black', shrink=0.05),
-		#			 ha='center'
-		#			 )
-
 		plt.ylabel('Prediction Accuracy')
 		plt.xlabel(continuous_var)
 		plt.title(name)
 
-		plt.savefig('./report/img/' + file_name)
+		plt.savefig(path)
 
-		plt.show()
+		if show: plt.show()
 
 
-	def plot_all_models(self,name,param_list,accuracies,excluded_params,labels=['KNN']*9,file_name='all_models.eps'):
+	# Private methods used to make a collective plot of all models
+	def __plot_all_models(self,name,param_list,accuracies,excluded_params,labels,show=True,path='./report/img/all_models.eps'):
 
 		#print(param_list,accuracies)
 		excluded_params.append('method')
@@ -515,7 +543,6 @@ class Plotter:
 		ax1.set_title(name)
 
 		ax1.set_xlim([0, 150])
-		# ax1.xaxis.set_major_locator(MaxNLocator(11))
 		ax1.xaxis.grid(True, linestyle='--', which='major',
 					   color='grey', alpha=.25)
 
@@ -525,18 +552,12 @@ class Plotter:
 		# Set the right-hand Y-axis ticks and labels
 		ax2 = ax1.twinx()
 
-		#scoreLabels = [format_score(scores[k].score, k) for k in testNames]
-
 		# set the tick locations
 		ax2.set_yticks(100*np.array(accuracies))
 		# make sure that the limits are set equally on both yaxis so the
 		# ticks line up
 		ax2.set_ylim(ax1.get_ylim())
 
-		# set the tick labels
-		#ax2.set_yticklabels(scoreLabels)
-
-		#ax2.set_ylabel('Test Scores')
 
 		rect_labels = []
 		for acc,rect,y in zip(accuracies,rects,y_labels):
@@ -547,19 +568,6 @@ class Plotter:
 			width = int(rect.get_width())
 
 			rankStr = "%.1f %%" % (100*acc)
-			# The bars aren't wide enough to print the ranking inside
-			# if width < 40:
-			# 	# Shift the text to the right side of the right edge
-			# 	xloc = 5
-			# 	# Black against white background
-			# 	clr = 'black'
-			# 	align = 'left'
-			# else:
-			# 	# Shift the text to the left side of the right edge
-			# 	xloc = -5
-			# 	# White on magenta
-			# 	clr = 'white'
-			# 	align = 'right'
 
 			xloc = -5
 			# White on magenta
@@ -578,10 +586,6 @@ class Plotter:
 
 			# Center the text vertically in the bar
 			yloc = rect.get_y() + rect.get_height() / 2
-			#lb = ax1.annotate(y, xy=(-1, yloc), xytext=(-20, 0),
-			#					 textcoords="offset points",
-			#					 ha='left', va='center',
-			#					 color='black', clip_on=True)
 
 			if y.count('\n') == 1:
 				ax1.text(-40, yloc - 0.6, y)
@@ -592,12 +596,13 @@ class Plotter:
 
 		plt.legend(rects,labels)
 
-		plt.savefig('./report/img/'+file_name)
+		plt.savefig(path)
 
 		ax1.set_xlabel('Accuracy')
-		plt.show()
+		if show: plt.show()
 
-	def train_and_evaluate(self,prep,params):
+	# Train and evaluate model with specific parameters
+	def __train_and_evaluate(self, prep, params):
 
 		prep.train_model(self.X_train, self.y_train, **params)
 
