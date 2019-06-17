@@ -147,7 +147,18 @@ class Plotter:
 
 
 	def visualize_bigrams(self,limit=10,path='./report/img/bigrams.png'):
-		bigram_dict = {b[0]+" "+b[1]:s for b,s in self.prep.best_bigram_scores[:limit]}
+
+		word_dict=  self.prep.word_dict
+		#bigrams = set({a+" "+b for a,b in self.prep.bigrams})
+		#bigram_indexes = [word_dict[b] for b in bigrams if b in word_dict]
+
+		bigram_set = set({b[0]+" "+b[1] for b,s in self.prep.best_bigram_scores})
+		bigram_dict = {bigram:self.prep.var[word_dict[bigram]] for bigram in bigram_set if bigram in self.prep.word_dict}
+
+		bigram_list = list(bigram_dict.items())
+		bigram_list = sorted(bigram_list,key=lambda x:-x[1])[:limit]
+		bigram_dict = {a:b for a,b in bigram_list}
+
 		wc = WordCloud(width = 2400, height = 2400,background_color ='white')
 		wc_img = wc.generate_from_frequencies(bigram_dict)
 		plt.figure(figsize=(10, 10))
@@ -179,6 +190,7 @@ class Plotter:
 		print("Preprocessing...")
 		articles, labels = prep.parse_files(('train', 'test'))
 
+		print(len(articles))
 		N = 10000
 		articles, labels = articles[:N], labels[:N]
 		articles, labels = np.array(articles), np.array(labels)

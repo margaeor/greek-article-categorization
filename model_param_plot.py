@@ -7,8 +7,8 @@ if __name__ == '__main__':
 
 	plotter = Plotter(threads=5,ignore_pickles=True)
 
-	#plotter.visualize_bigrams(20)
-	#print(plotter.prep.best_bigram_scores)
+	plotter.visualize_bigrams(40)
+	print(plotter.prep.best_bigram_scores)
 
 	#plotter.visualize_descriptive_terms(200)
 	#print(plotter.prep.selected_words)

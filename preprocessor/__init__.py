@@ -77,6 +77,7 @@ class Preprocessor(object):
 		self.id2word = None
 		self.word_dict = None
 		self.selected_words = []
+		self.var = np.array([])
 
 		# Variables used for bigram features
 		self.use_bigrams = n_bigrams>0
@@ -84,6 +85,7 @@ class Preprocessor(object):
 		self.bigram_min_freq = bigram_min_freq
 		self.bigrams = []
 		self.best_bigram_scores = []
+		self.bigram_indexes = []
 
 		# Compile regexes that clear text for better performance
 		self.clear_regexes =[
@@ -299,7 +301,7 @@ class Preprocessor(object):
 		data = self.unpickle_data(pickle_file)
 
 		if len(data) > 0:
-			tfidf,self.selected_words,self.idf = data
+			tfidf,self.var,self.selected_words,self.idf = data
 			return tfidf
 
 		n_words = max(word_dict.values())
@@ -340,6 +342,7 @@ class Preprocessor(object):
 		self.selected_words = [(self.id2word[id],var[id]) for id in self.selected_dims]
 		bigram_index = len(self.word_dict)-len(self.bigrams)
 
+		self.var = var
 		self.bigram_words = [(self.id2word[id],var[id]) for id in var[bigram_index:].argsort()[::-1]]
 		#print(selected_words)
 
@@ -359,7 +362,7 @@ class Preprocessor(object):
 
 		#self.calc_mutual_information(tfidf,m_reduced)
 
-		self.pickle_data(pickle_file,(tfidf,self.selected_words,idf))
+		self.pickle_data(pickle_file,(tfidf,var,self.selected_words,idf))
 
 		return tfidf
 

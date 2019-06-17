@@ -824,10 +824,11 @@ documents available \cite{a5}.
 \par
 Generally, document categorization is the process of assigning
 multiple classes $\{c_1,c_2,...,c_n\}$ to a certain document
-$d_i\in \mathcal{D}$ where $\mathcal{D}$ represents a collection of documents.
-However, in this paper we will examine the problem of Hard
-Categorization which is a simpler form of text categorization
-where each document belongs to only one class $c_j\in C$, 
+$d_i\in \mathcal{D}$ where $\mathcal{D}$ represents a 
+collection of documents.
+However, in this paper we will examine a simpler form 
+of text categorization where each document belongs to only 
+one class $c_j\in C$, 
 following a one to one relationship \cite{a1}.
 Similarly to every supervised machine learning algorithm,
 our goal is to is to find a function $f: \mathcal{D}\rightarrow C$
@@ -999,7 +1000,7 @@ Hence, in order to select the most descriptive bigrams,
 we utilized the metric of Pointwise Mutual Information.
 More specifically, for 2 terms $t_1$ and $t_2$, the
 PMI of the 2 terms is given by the formula 
-$I(w_1,w_2)=\log_2\frac{P(t_1,t_2)}{P(t_1)P(t_2)}$.
+$I(t_1,t_2)=\log_2\frac{P(t_1,t_2)}{P(t_1)P(t_2)}$.
 
 Another commonly used practice for feature creation 
 is to group certain terms that would otherwise be
