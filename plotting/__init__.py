@@ -27,28 +27,22 @@ class Plotter:
 		self.prep = Preprocessor(ignore_pickles=ignore_pickles,strict=strict,n_bigrams=3000,bigram_min_freq=10)
 
 		if preprocess:
+			# Preprocess used for individual model plot
 			self.preprocess()
 
 
-	# Method used to call preprocessor so as to preprocess our data
+	# Method used to call preprocessor so as to preprocess our data.
+	# Used for individual model plot
 	def preprocess(self,verbose=True):
 
 		if verbose: print("Preprocessing...")
 		thres = 4652
 
-		#self.articles_train, self.labels_train = self.prep.parse_files('train', is_train=True)
-		#self.articles_test, self.labels_test = self.prep.parse_files('test', is_train=False)
-		#print(len(ar))
 
 		self.articles_all, self.labels_all = self.prep.parse_files(('train','test'), is_train=True)
 		self.articles_train, self.labels_train = self.articles_all[:thres],self.labels_all[:thres]
 		self.articles_test, self.labels_test = self.articles_all[thres:],self.labels_all[thres:]
 
-		N = 10000
-		self.articles_train, self.labels_train = self.articles_train[:N], self.labels_train[:N]
-		self.articles_test, self.labels_test = self.articles_test[:N], self.labels_test[:N]
-
-		# print(articles_train[2559])
 
 		# Create dictionary
 		if verbose: print("Creating Dictionary...")
@@ -71,8 +65,8 @@ class Plotter:
 		self.X_train = self.prep.reduce_dims_train(self.X_train, self.labels_train, 'PCA', n_components=70)
 		self.X_test = self.prep.reduce_dims_test(self.X_test)
 
-		# Decode the labels and convert them to numbers
-		if verbose: print("Decoding Labels...")
+		# Encoding the labels and convert them to numbers
+		if verbose: print("Encoding Labels...")
 		self.y_train = self.labels_train
 		self.y_test = self.labels_test
 		self.y_train = self.prep.encode_labels(self.labels_train)
@@ -81,7 +75,7 @@ class Plotter:
 
 
 
-	# Evaluate the accuracy of a model with certain parameters
+	# Train and evaluate the accuracy of a model with certain parameters
 	def __run_model(self, prep, X_train, y_train, X_test, y_test, params):
 
 		print("Training "+params['method'])
@@ -142,11 +136,10 @@ class Plotter:
 
 
 
+	# Used to visualize the best bigrams using WordCloud
 	def visualize_bigrams(self,limit=10,path='./report/img/bigrams.png'):
 
 		word_dict=  self.prep.word_dict
-		#bigrams = set({a+" "+b for a,b in self.prep.bigrams})
-		#bigram_indexes = [word_dict[b] for b in bigrams if b in word_dict]
 
 		bigram_set = set({b[0]+" "+b[1] for b,s in self.prep.best_bigram_scores})
 		bigram_dict = {bigram:self.prep.var[word_dict[bigram]] for bigram in bigram_set if bigram in self.prep.word_dict}
@@ -160,9 +153,12 @@ class Plotter:
 		plt.figure(figsize=(10, 10))
 		plt.imshow(wc_img, interpolation="bilinear")
 		plt.axis("off")
+
+		# Export image to file
 		wc.to_file(path)
 		plt.show()
 
+	# Used to visualize the best terms using WordCloud
 	def visualize_descriptive_terms(self,limit=10,path='./report/img/terms.png'):
 		tmp = self.prep.selected_words
 		tmp[0] = (tmp[0][0],tmp[0][1]/6)
@@ -172,6 +168,8 @@ class Plotter:
 		plt.figure(figsize=(10, 10))
 		plt.imshow(wc_img, interpolation="bilinear")
 		plt.axis("off")
+
+		# Export image to file
 		wc.to_file(path)
 		plt.show()
 
@@ -186,11 +184,12 @@ class Plotter:
 		print("Preprocessing...")
 		articles, labels = prep.parse_files(('train', 'test'))
 
-		print(len(articles))
-		N = 10000
-		articles, labels = articles[:N], labels[:N]
+		print("Number of articles:",len(articles))
+		# N = 10000
+		# articles, labels = articles[:N], labels[:N]
 		articles, labels = np.array(articles), np.array(labels)
 
+		# Initialize kfold validation
 		kf = KFold(n_splits=5, shuffle=True)
 
 		param_list = [
@@ -200,19 +199,23 @@ class Plotter:
 			{'method':'MEAN','metric': 'mahalanobis','metric_params':{'V': np.cov(self.X_train, rowvar=False)}},
 			{'method':'GMM','covariance_type':'diag', 'n_components': 11},
 			{'method':'KNN','n_neighbors': 10, 'metric': 'cosine'},
-			#{'method':'ANN','epochs': 40, 'batch_size': 20},
-			#{'method':'CNN','epochs': 40, 'batch_size': 10},
+			{'method':'ANN','epochs': 40, 'batch_size': 20},
+			{'method':'CNN','epochs': 40, 'batch_size': 10},
 		]
 
 		accuracies = []
 
 		i = 0
+		# Repeat for each kfold iteration
 		for train_index, test_index in kf.split(articles, labels):
+
+			# Get training and test data
 			articles_train, articles_test = articles[train_index], articles[test_index]
 			labels_train, labels_test = labels[train_index], labels[test_index]
 
 			print("----- [Pass " + str(i+1) + "] -------")
 
+			# Train and evaluate models
 			results = self.__train_and_evaluate_all(param_list,articles_train,articles_test,labels_train,labels_test)
 
 			accuracies.append(results)
@@ -221,6 +224,7 @@ class Plotter:
 
 		mean_accuracies = np.mean(np.array(accuracies),axis=0)
 
+		# Display the accuracy of each model
 		for param,accuracy in zip(param_list,list(mean_accuracies)):
 			print("Model: "+param['method'],", Accuracy: %.2f%%" % (accuracy*100))
 
@@ -228,7 +232,8 @@ class Plotter:
 
 		excluded_params = ['method','gamma','decision_function_shape','metric_params']
 
-		self.__plot_all_models("All models",param_list,mean_accuracies,excluded_params,labels,path)
+		# Create a collective plot of all the models used for comparison
+		self.__plot_all_models("All models",param_list,mean_accuracies,excluded_params,labels,path=path)
 
 
 	# Try KNN model for different sets of parameters and create an accuracy plot
@@ -414,7 +419,7 @@ class Plotter:
 
 		return accuracies
 
-	# Make a model accuracy plot for different model parameters
+	# Private method used to make model accuracy plot for different model parameters
 	def __plot_discrete_model(self, name, param_list, accuracies, excluded_params,show=True,path=None):
 
 		excluded_params.append('method')
@@ -519,7 +524,7 @@ class Plotter:
 		if show: plt.show()
 
 
-	# Private methods used to make a collective plot of all models
+	# Private method used to make a collective plot of all models and save it to files
 	def __plot_all_models(self,name,param_list,accuracies,excluded_params,labels,show=True,path='./report/img/all_models.eps'):
 
 		#print(param_list,accuracies)

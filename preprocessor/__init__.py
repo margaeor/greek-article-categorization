@@ -64,8 +64,11 @@ class Preprocessor(object):
                   os.path.dirname(__file__), 'neutral_words.txt'), 'r',encoding="utf8") as fp:
 			self.neutral_words = set([w[:-1] for w in fp.readlines()])
 
-
+		# Used to determine wether we should use parsing pickles or parse the files again
 		self.strict = strict
+
+		# Used to ignore preprocessing pickles
+		self.ignore_pickles = ignore_pickles
 
 		self.transform_model = None
 
@@ -75,33 +78,60 @@ class Preprocessor(object):
 		self.classifier = None
 		self.classifier_type = None
 
+		# Dictionary mapping labels to one-hot vectors
 		self.label_dict = None
-		self.ignore_pickles = ignore_pickles
+
+		# IDF calculated from training set
 		self.idf = []
 
+		# Dictionary mapping word ids to words
 		self.id2word = None
+
+		# Word dictionary mapping words to indexes
 		self.word_dict = None
+
+		# Indexes of most discriminating words
 		self.selected_words = []
+
+		# Variances of discriminating words
 		self.var = np.array([])
+
 
 		# Variables used for bigram features
 		self.use_bigrams = n_bigrams>0
 		self.n_bigrams = n_bigrams
+
+		# Threshold for bigram occurence in texts
 		self.bigram_min_freq = bigram_min_freq
+
+		# List of bigram tuples
 		self.bigrams = []
+
+		# Scores of most descriptive bigrams
 		self.best_bigram_scores = []
 		self.bigram_indexes = []
 
-		# Compile regexes that clear text for better performance
+		# Compile regexes that clear text
 		self.clear_regexes =[
+
+			# Merges decimal number into a single numerical value
 			(re.compile(r'([0-9])(\s*[\.,]\s*)([0-9])'), '\1\3'),
+
+			# Takes care of acronyms
 			(re.compile(r'(([\w]+)\.)(([\w]+)\.)(([\w]+)\.)?(([\w]+)\.)?(([\w]+)\.)?'),'\2\4\6\8\10'),
+
+			# Removes every character that is not a word or a digit
 			(re.compile(r'([^\w0-9])+'), ' ')
 		]
 
+		# Constant used in place of country name
 		self.COUNTRY_CONST = 'COUNTRYVALUE'
+
+		# Constant used instead of numerical values
 		self.NUMBER_CONST = 'NUMBERVALUE'
 
+
+	# Unpickle data from file
 	def unpickle_data(self,file):
 
 		data_file = file + '.data'
@@ -133,6 +163,8 @@ class Preprocessor(object):
 		else:
 			return []
 
+
+	# Pickle data to file
 	def pickle_data(self,file,data):
 
 		data_file = file + '.data'
@@ -141,8 +173,6 @@ class Preprocessor(object):
 		numpy_matrix = np.array([])
 		metadata = []
 
-		#if self.ignore_pickles:
-		#	return
 
 		if type(data) == np.ndarray:
 			numpy_matrix = data
@@ -170,16 +200,19 @@ class Preprocessor(object):
 
 
 
-
 	def parse_files(self,dir,only_parse=False,is_train=False):
 
 		is_kfold = isinstance(dir,tuple)
 		is_train = is_kfold or is_train
 
+		# List of directories to parse
 		directories = list(dir) if is_kfold else [dir]
 
+		# Pickle file for the given directories
 		pickle_file = './data/'+"-".join(directories)+'.pickle'
 
+		# If pickles exist and we don't want to ignore them, then load and return
+		# preprocessed articles from pickle
 		if not (self.ignore_pickles and self.strict) and os.path.isfile(pickle_file):
 			with open(pickle_file, 'rb') as f:
 				# The protocol version used is detected automatically, so we do not
@@ -188,42 +221,55 @@ class Preprocessor(object):
 				self.bigrams = set([b for b,s in self.best_bigram_scores])
 				return articles,labels
 
+
 		articles = []
 		labels = []
 
 		i=0
+
+		# Loop through every directory
 		for root, dirs, files in chain.from_iterable(os.walk('./data/'+dirr) for dirr in directories):
 
+			# Loop through every file
 			for name in files:
 
 				link = os.path.join(root, name)
 
+				# Open only .raw files
 				if re.search(r'\.raw$', name):
 
+					# Ignore encoding issues and open file as ISO-8859-7
 					with codecs.open(link, 'r', encoding='ISO-8859-7', errors='ignore') as f:
 
+						# Parse and preprocess file
 						m = re.match(r'^[a-zA-Z]+', name)
 						if m:
 							data = f.read().replace('\n', ' ').replace('\x96', ' ')
 							articles.append(data if only_parse else self.preprocess(data))
 							labels.append(m.group(0))
-
-							#if i%10==0:
-							#	print(str(i)+" texts parsed")
 							i+=1
 
 		best_bigram_scores = []
+
+		# If we want to use bigrams
 		if self.use_bigrams:
+
+			# Bigrams are collected from training set only
 			if is_train:
+
 				bigram_measures = nltk.collocations.BigramAssocMeasures()
 				finder = BigramCollocationFinder.from_documents(articles)
+
+				# Filter bigrams that appear in less than bigram_min_freq texts
 				finder.apply_freq_filter(self.bigram_min_freq)
+
+				# Get first n bigrams with highest PMI
 				best_bigram_scores = [(b,s) for b, s in finder.score_ngrams(bigram_measures.pmi)[:self.n_bigrams]]
 				best_bigrams = [b for b,s in best_bigram_scores]
 				self.bigrams = set(best_bigrams)
 				self.best_bigram_scores = best_bigram_scores
-				#print("Best bigrams:",best_bigrams)
 
+			# Append the bigrams to our article prepairing for feature extraction phase
 			articles = [article + [b[0]+" "+b[1] for b in nltk.bigrams(article) if b in self.bigrams]
 							for article in articles]
 
@@ -231,7 +277,7 @@ class Preprocessor(object):
 			raise Exception("Couldn't create labels")
 
 		with open(pickle_file, 'wb') as f:
-			# Pickle the 'data' dictionary using the highest protocol available.
+			# Pickle data to file
 			pickle.dump((best_bigram_scores,articles,labels), f, pickle.HIGHEST_PROTOCOL)
 
 		return articles, labels
@@ -239,20 +285,27 @@ class Preprocessor(object):
 
 	def preprocess(self,text):
 
+		# Remove accent characters
 		text = self.strip_accents(text)
 
+		# Convert to uppercase
 		text = text.upper()
 
+		# Tokenize
 		words = self.tokenize(text)
 
+		# Stem words and remove neutral words
 		words = [self.greek_stemmer.stem(w) for w in words if w not in self.neutral_words]
 
 		r = re.compile('[0-9]')
 
+		# Replace numerical values with NUMBER_CONST
 		words = [self.NUMBER_CONST if bool(r.search(w)) else w for w in words]
 
+		# Replace country names with COUNTRY_COST
 		words = [self.COUNTRY_CONST if w in self.countries else w for w in words]
 
+		# Remove words with less than 3 letters
 		words = [w for w in words if len(w)>2]
 
 		return words
@@ -275,6 +328,7 @@ class Preprocessor(object):
 		return words
 
 
+	# Used to create a word dictionary
 	def create_word_dictionary(self,texts,recreate=True):
 
 		words_dict = {}
@@ -282,28 +336,31 @@ class Preprocessor(object):
 
 		pickle_file = './data/word_dict'
 
-		if not recreate:
-			data = self.unpickle_data(pickle_file)
-			if len(data) > 0:
-				words_dict,counter = data
-				self.id2word = {b:a for (a,b) in words_dict.items()}
-				self.word_dict = words_dict
-				return words_dict
+		# Unpickle dict if possible
+		data = self.unpickle_data(pickle_file)
+		if len(data) > 0:
+			words_dict,counter = data
+			self.id2word = {b:a for (a,b) in words_dict.items()}
+			self.word_dict = words_dict
+			return words_dict
 
+		# Loop through texts and add new words to dictionary
 		for text in texts:
 			for word in text:
 				if word not in words_dict:
 					words_dict[word] = counter
 					counter += 1
 
+		# Pickle dict
 		self.pickle_data(pickle_file,(words_dict,counter))
 
+		# Create inverse dict
 		self.id2word = {b: a for (a, b) in words_dict.items()}
 		self.word_dict = words_dict
 		return words_dict
 
 
-	def create_tfidf_train(self,word_dict,texts,labels,doc_threshold=10,cutoff_percent=0.75,n_dims=3000):
+	def create_tfidf_train(self,word_dict,texts,labels,n_dims=3000):
 
 		pickle_file = './data/train/tfidf'
 		data = self.unpickle_data(pickle_file)
@@ -312,14 +369,17 @@ class Preprocessor(object):
 			tfidf,self.var,self.selected_words,self.idf = data
 			return tfidf
 
+		# Useful values
 		n_words = max(word_dict.values())
 		n_documents = len(texts)
 		label_set = set(labels)
 		n_classes = len(label_set)
 		n_features = n_words+1
 
+		# Matrix used to represent number of occurences of each term in each text
 		m = []
 
+		# Loop through texts and create matrix m
 		for text in texts:
 			word_vec = [0]*(n_words+1)
 
@@ -333,47 +393,52 @@ class Preprocessor(object):
 
 		m = np.array(m)
 
+		# Create y from labels
 		dct = {k: i for (i, k) in enumerate(label_set)}
-
 		y = np.array([dct[i] for i in labels])
 
+		# For every class calculate the TF of every term
 		m_class = np.zeros((n_classes,n_features))
-
 		for i in range(n_classes):
 			a = np.sum(m[y==i,:],axis=0)
 			m_class[i,:] = a/np.sum(a)
 
+		# Find the variance of tf among different classes
+		# This is used to extract the terms that differentiate
+		# most one class from the other
 		var = np.var(m_class,axis=0)
 
+		# Take top terms with largest variance among classes
 		self.selected_dims = var.argsort()[-n_dims:][::-1]
 
+		# Create tuples mapping term id to term variance
 		self.selected_words = [(self.id2word[id],var[id]) for id in self.selected_dims]
-		bigram_index = len(self.word_dict)-len(self.bigrams)
-
 		self.var = var
-		self.bigram_words = [(self.id2word[id],var[id]) for id in var[bigram_index:].argsort()[::-1]]
-		#print(selected_words)
 
+		# Reduced table m to new dimensions
 		m_reduced = m[:,self.selected_dims]
 
+		# Create tf matrix
 		tft = m_reduced/np.sum(m_reduced,axis=1).reshape((-1,1))
 
+		# Document frequency
 		doc_frequency = np.sum(np.int32(m_reduced>0),axis=0)
 
+		# Inverse document frequency
 		idf = np.log(n_documents/doc_frequency)
-
-		#idf = idf * np.int32(np.logical_and(doc_frequency > doc_threshold, doc_frequency<n_documents*cutoff_percent))
-
 		self.idf = idf
 
+		# Calculate IDF
 		tfidf = tft*idf
 
-		#self.calc_mutual_information(tfidf,m_reduced)
+		# self.calc_mutual_information(tfidf,m_reduced)
 
+		# Pickle our data
 		self.pickle_data(pickle_file,(tfidf,var,self.selected_words,idf))
 
 		return tfidf
 
+	# Used to calculate mutual information
 	def calc_mutual_information(self,tfidf,m,n_dims_reduced=1000):
 
 		m1 = np.int32(m>0)
@@ -396,7 +461,6 @@ class Preprocessor(object):
 		#for tup in results:
 		#	print(self.id2word[self.selected_dims[tup[0]]]+"-"+self.id2word[self.selected_dims[tup[1]]])
 
-		pass
 
 
 	def create_tfidf_test(self, word_dict, texts):
@@ -414,8 +478,10 @@ class Preprocessor(object):
 
 		n_words = max(word_dict.values())
 
+		# Matrix used to represent number of occurences of each term in each text
 		m = []
 
+		# Loop through texts and extract features
 		for text in texts:
 			word_vec = np.array([0] * (n_words + 1))
 
@@ -428,46 +494,53 @@ class Preprocessor(object):
 
 		m = np.array(m)
 
+		# Reduce matrix m according to the selected dimensions
 		m_reduced = m[:,self.selected_dims]
 
-
+		# Test set TF matrix
 		tft = m_reduced / np.sum(m_reduced, axis=1).reshape((-1, 1))
 
+		# Test set TFIDF matrix
 		tfidf = tft * self.idf
 
 		self.pickle_data(pickle_file,tfidf)
 
 		return tfidf
 
+
+	# Transform data
 	def transform_train(self,tfidf,method='entropy',mode='train'):
 
 		self.transform_model = method
 
+		# If a corresponding pickle exists, load data from pickle
 		pickle_file = './data/'+mode+'/tranform_'+method
-
 		data = self.unpickle_data(pickle_file)
-
 		if len(data) > 0:
 			return data
 
 		l = []
+
+		# Entropy transformation
 		if method == 'entropy':
 
 			p =  tfidf / np.sum(tfidf,axis=0)
 			p[np.isnan(p)] = 1
 
 			e = 1 + np.nan_to_num(np.sum(p*np.log(p),axis=0)/np.log(tfidf.shape[0]))
-			#print(e.shape)
 			e[e== -inf] = 0
 
 			l = e*np.log(1 + tfidf)
 
-
+		# Binary transformation
 		elif method == 'binary':
 			l = 1*(tfidf > 0)
 
+		# Logarithmic transformation
 		elif method == 'log':
 			l = np.log(1+tfidf)
+
+		# No transformation
 		elif method == 'none':
 			l = tfidf
 
@@ -475,6 +548,7 @@ class Preprocessor(object):
 
 		return l
 
+	# Transform test set using the chosen transformation method
 	def transform_test(self,tfidf):
 
 		if self.transform_model == None:
@@ -483,6 +557,7 @@ class Preprocessor(object):
 		return self.transform_train(tfidf,self.transform_model,mode='test')
 
 
+	# Perform dimensionality reduction
 	def reduce_dims_train(self,X,y,method='PCA',**kwargs):
 
 		pickle_file = './data/train/reduced_dims_'+method
@@ -493,36 +568,31 @@ class Preprocessor(object):
 			transformed,l_kwargs,transform_model_type,reduction_model,= data
 			if transform_model_type == self.transform_model and l_kwargs == kwargs:
 				self.reduction_model = reduction_model
-				#print(transformed.shape)
 				return transformed
 
 		if method == 'PCA':
-			# n_components = 50
 			self.reduction_model = PCA(**kwargs)
 
 
 		elif method == 'LDA':
-			# n_components=50, solver=svd
 			self.reduction_model = LDA(n_components=50)
 			dct = {k: i for (i, k) in enumerate(set(y))}
 			y = [dct[i] for i in y]
 
-		elif method == 'MEAN':
-			# n_components=50
-			self.reduction_model = MeanReduction(**kwargs)
-
 		else:
 			raise Exception("Wrong Method")
 
-
+		# Fit the reduction model to our data
 		self.reduction_model.fit(X, y)
+
+		# Perform dimensionality reduction
 		transformed = self.reduction_model.transform(X)
 
 		self.pickle_data(pickle_file,(transformed,kwargs,self.transform_model,self.reduction_model))
 
 		return transformed
 
-
+	# Perform dimensionality reduction to the test set using the chosen method
 	def reduce_dims_test(self,X):
 
 		if self.reduction_model == None:
@@ -530,6 +600,7 @@ class Preprocessor(object):
 
 		return self.reduction_model.transform(X)
 
+	# Perform one-hot encoding to our labels
 	def encode_labels(self,y):
 
 		s = set(y)
@@ -544,6 +615,7 @@ class Preprocessor(object):
 		return y
 
 
+	# Train model with different parameters and methods
 	def train_model(self,X,y,method='KNN',**kwargs):
 
 		self.classifier_type = method
@@ -650,7 +722,7 @@ class Preprocessor(object):
 			raise Exception("No such classifier exists!")
 
 
-
+	# Evaluate our model
 	def evaluate_model(self,X,y):
 
 		if self.classifier==None or self.classifier_type == None:
