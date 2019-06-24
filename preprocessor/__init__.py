@@ -53,11 +53,17 @@ class Preprocessor(object):
 
 
 	def __init__(self,ignore_pickles=False,strict=False,n_bigrams=0,bigram_min_freq=3):
+
+		self.greek_stemmer = GreekStemmer()
+
+		with open(os.path.join(
+				os.path.dirname(__file__), 'countries.txt'), 'r', encoding="utf8") as fp:
+			self.countries = set([self.greek_stemmer.stem(self.strip_accents(w[:-1]).upper()) for w in fp.readlines()])
+
 		with open(os.path.join(
                   os.path.dirname(__file__), 'neutral_words.txt'), 'r',encoding="utf8") as fp:
 			self.neutral_words = set([w[:-1] for w in fp.readlines()])
 
-		self.greek_stemmer = GreekStemmer()
 
 		self.strict = strict
 
@@ -93,6 +99,7 @@ class Preprocessor(object):
 			(re.compile(r'([^\w0-9])+'), ' ')
 		]
 
+		self.COUNTRY_CONST = 'COUNTRYVALUE'
 		self.NUMBER_CONST = 'NUMBERVALUE'
 
 	def unpickle_data(self,file):
@@ -244,7 +251,9 @@ class Preprocessor(object):
 
 		words = [self.NUMBER_CONST if bool(r.search(w)) else w for w in words]
 
-		words = [w for w in words if len(w)>1]
+		words = [self.COUNTRY_CONST if w in self.countries else w for w in words]
+
+		words = [w for w in words if len(w)>2]
 
 		return words
 
