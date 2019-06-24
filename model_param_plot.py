@@ -49,6 +49,6 @@ if __name__ == '__main__':
 			print(end - start," seconds")
 
 		b2 = int(
-			input('Choose action:\n1)Visualize Bigrams\n2)Visualize Terms\n3)Run model grid param search\n4)Run all '
+			input('\nChoose action:\n1)Visualize Bigrams\n2)Visualize Terms\n3)Run model grid param search\n4)Run all '
 				  'models kfold\n5)Exit\n> '))
 		assert b2 in range(1, 5)
