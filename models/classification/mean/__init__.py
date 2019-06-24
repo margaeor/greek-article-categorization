@@ -22,7 +22,7 @@ class MEAN_CLASSIFIER:
 			return np.sqrt(np.sum(np.power(U - v, 2)))
 
 		def cosine(x, y):
-			res = 1 - np.dot(x, y) / (norm(x) * norm(y))
+			res = np.arccos(np.dot(x, y) / (norm(x) * norm(y)))
 			return res
 
 		def mahalanobis(x,y):

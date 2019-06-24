@@ -847,8 +847,8 @@ the standard procedure that is generally used for text classification
 problems.
 This process, as seen on figure \ref{preprocessing} involves, 
 Punctuation Deletion, Accent Stripping, Text Tokenization, 
-Neutral Word Removal, Stemming and Lemmatization, 
-Vector Representation of each document as Term Document Matrices, 
+Neutral Word Removal, Stemming, 
+Vector Representation of documents as a term document matrix, 
 Feature Transformation, Feature Selection.
 \par
 As in every other machine learning task, the main problem of text
@@ -857,8 +857,8 @@ a numeric representation.
 Specifically, in text categorization the main task is to extract
 meaningful numerical components that will be used to describe
 our documents.
-However, due to the very large number of distinct words in a
-document (which may range from a few hundred to thousands), 
+However, due to the very large number of distinct words in our
+documents (which may exceed 60000), 
 it is usually considered as a good practice to
 implement certain dimensionality reduction techniques in
 order to increase the efficiency of Machine Learning Models.
@@ -880,8 +880,8 @@ was to implement various Classification Algorithms for different
 sets of parameters.
 We then extracted evaluation metrics in order to assess the
 suitability of each algorithm for the given task.
-Finally, in order to generalization capabilities of our algorithms,
-we performed kfold cross validation.
+Finally, in order to assess the generalization capabilities 
+of our algorithms, we performed kfold cross validation.
 
 \begin{figure}[!t]
 	\centering
@@ -900,12 +900,12 @@ More specifically, they used tfidf text representations
 and Latent Semantic Analysis in order to evaluate the accuracies
 of each model.
 Their results showed that both SVM and KNN models perform
-very well at the specific task.
+very well in the specific task.
 
 Another more interesting approach towards text classification
 was described in \cite{a4}.
 In that paper, the research team didn't just use the classic
-models for text categorizations(like SVM, RandomForest,Naive
+models for text categorization (like SVM, RandomForest,Naive
 Bayes and ANN), but they also implemented several hybrid
 approaches.
 Those approaches included ANNs initialized using Decision
@@ -927,8 +927,8 @@ that convey no useful information, such as dots, commas,
 exclamation marks e.t.c.
 Secondly, due to the fact that Greek language contains
 certain supplementary accent characters, which may negatively
-affect the stages of stemming and lemmatization, we had to
-replace letters having accent characters with bear letters.
+affect the stage of stemming, we had to
+replace letters having accent characters with bear letters (accent stripping).
 After having removed redundant characters and converted
 our text into uppercase, we performed text tokenization
 by separating our text into words using space delimiters.
@@ -946,7 +946,7 @@ representations of our texts.
 
 In text categorization, due to the fact that the
 main meaning of the words are encapsulated into their
-roots, it is a common practice to perform stemming and
+roots, it is a common practice to perform stemming or
 lemmatization in order to extract the root of each word.
 So, that's why we made use of a Greek Stemmer in order
 to remove word suffixes.
@@ -962,7 +962,7 @@ to transform the documents from the word space
 into a vector space.
 The first step to realize this transformation was
 to create a dictionary in order to map words
-into their respective indexes.
+into their respective indices.
 Due to the fact that in our task the order of words
 does not play a significant role in determining the
 category of the document, we employed a model called 
@@ -988,16 +988,16 @@ This model has been proven to be very robust and difficult
 to beat, even by more sophisticated models and theories \cite{a2}.
 
 \subsection{Advanced Features}
-Instead of using single words as features, it is generally 
+Instead of just using single words as features, it is generally 
 considered a good practice to use contiguous sequences of
 n words, also known as n-grams, which can help increase
 prediction accuracy.
 In this paper, we used n-grams for $n=2$, which are called
 bigrams.
-However, in a collection of texts a huge number of bigrams
+Generally, in a collection of texts a huge number of bigrams
 can be found.
 Hence, in order to select the most descriptive bigrams, 
-we utilized the metric of Pointwise Mutual Information.
+we utilized the metric of Pointwise Mutual Information (PMI).
 More specifically, for 2 terms $t_1$ and $t_2$, the
 PMI of the 2 terms is given by the formula 
 $I(t_1,t_2)=\log_2\frac{P(t_1,t_2)}{P(t_1)P(t_2)}$.
@@ -1007,8 +1007,11 @@ is to group certain terms that would otherwise be
 considered useless, into more general groups.
 For instance, in our case, we grouped all numerical
 data into a single feature because we are mostly
-interested in the existence of a number in general
-and not an individual number.
+interested in the existence of a number in the text
+and not interested in the numerical value of 
+this number.
+Also, we followed the same strategy for country
+names by grouping them into a single feature.
 
 \subsection{Feature Transformation}
 In many cases, we can improve the performance of
@@ -1049,7 +1052,7 @@ to our data.
 Besides the standard dimensionality reduction techniques
 of LDA and PCA, we also applied dimensionality reduction
 according to the statistical characteristics of 
-our features among different classes.
+our features among the different classes.
 
 In particular, we constructed a matrix $Z\in 
 \mathbb{R}^{|C|\times |V|}$, where each element
@@ -1070,8 +1073,8 @@ LDA or PCA.
 In order to classify our articles into the different
 categories, we used a wide variety of models,
 such as SVM, RandomForest, GMM, NB, KNN, ANN, CNN.
-Out of those, we implemented ourselves KNN, Naive
-Bayes and ANN.
+Out of those, we implemented ourselves KNN, NB 
+and GMM.
 Apart from the above models, we also implemented
 a classifier that categorizes each sample to the
 class of which the mean value is closest to the
@@ -1106,7 +1109,7 @@ below.
 	\hline
 	\textbf{Mahalanobis} & $d(x,y) = \sqrt{(x-y)^TS^{-1}(x-y)}$\\
 	\hline
-	\textbf{Cosine} & $d(x,y) = \frac{xy^T}{||x||_2||y||_2}$\\
+	\textbf{Cosine} & $d(x,y) = cos^{-1}\Big(\frac{xy^T}{||x||_2||y||_2}\Big)$\\
 	\hline
 \end{tabular}
 \end{table}
@@ -1114,11 +1117,11 @@ below.
 \section{Experiments}
 \subsection{Individual Models}
 In our experiment, we measured the accuracy of
-our models (GMM,KNN,MEAN,RandomForest,SVM) for
+our models (GMM, KNN, MEAN, RandomForest, SVM) for
 different sets of parameters in order to determine
 the best parameters for each model.
-The respective results are shown in the figures
-below.
+The respective results are shown in figures
+\ref{GMM}-\ref{SVM}.
 % \begin{figure}[!h]
 % 	\centering
 % 	\includegraphics[width=3.2in]{./img/ANN.eps}
@@ -1139,13 +1142,10 @@ below.
 \subsection{Overall Comparison}
 After determining the best set of parameters
 for every model, we compared the models 
-with one another as shown in the figures below.
+with one another as shown in figures \ref{PCAentropy}-\ref{PCAlog}.
 The comparisons were conducted for different reduction
 methods (LDA-PCA) and different tfidf transformations
 (binary, entropy and log).
-Especially in the case of entropy transformation,
-we conducted both LDA and PCA in order to compare
-the results.
 \begin{figure}[!h]
 	\centering
 	\includegraphics[width=2.6in]{./img/GMM.eps}
@@ -1214,9 +1214,15 @@ However, for a single gaussian component,
 the GMM model is effectively degenerated
 into a Gaussian NB classifier.
 Additionaly, the second best performance
-is achieved for 15 guassian components
-and a full covariance matrix.
-Nevertheless, in cases we have limited data, 
+is achieved for 11 guassian components
+and a diagonal covariance matrix.
+However, we can observe that for different
+numbers of gaussian components the accuracy
+of GMM is erratic and not deterministic,
+rendering GMM a rather unsuitable model
+for the task.
+Nevertheless, in order to improve GMM accuracy 
+in cases when we have limited data, 
 it is generally preferable to use a
 diagonal covariance matrix because it requires 
 a smaller amount of parameters
@@ -1247,7 +1253,7 @@ resulting model is referred to as LDA classifier.
 \subsubsection{Random Forest}
 For the random forest classifier, as shown on figure \ref{RandomForest},
 we can observe that there is a relatively large
-variance in accuracy ($\sim1\%$) for different
+variance in accuracy ($\sim1.5\%$) for different
 numbers of estimators.
 Hence, it is evident that this model is not
 very suitable for the particular task, due
@@ -1261,16 +1267,15 @@ However, the best accuracy of SVM is observed
 for penalty parameter $C=1.5$ and rbf 
 kernel (gaussian).
 The superiority of the gaussian kernel in this
-task stems from the fact that our data can
+case stems from the fact that our data can
 be seperated more easily by a linear hyperplane when 
 projected to a gaussian space\cite{a3}.
 
-\subsection{ANN and CNN}
+\subsubsection{ANN and CNN}
 Although we implemented rather simple architectures
 of ANNs and CNNs, with 2 hidden layers in the case
 of ANN and 1 Convolutional layer and 2 dense layers
-in the case of CNN with default parameters for
-learning rate and batch size, we observed that
+in the case of CNN, we observed that
 both ANN and CNN perform relatively well.
 Especially in the case of ANN, this is to be
 expected as ANNs are considered as solid-performing
@@ -1291,7 +1296,7 @@ within class variance and maximize the between-class
 variance.
 However, in models like Gaussian NB and GMM, LDA seems to
 perform better than PCA which can be explained from the fact
-those models assume gaussian distributions of our data,
+those models also assume gaussian distributions of our data,
 just like LDA.
 
 \subsubsection{Comparison of different transformations}

@@ -24,7 +24,7 @@ class GMM:
 		n_samples,n_features = X.shape
 
 		for i in range(self.n_classes):
-			model = GaussianMixture(n_components=self.n_components,covariance_type='diag',
+			model = GaussianMixture(n_components=self.n_components,covariance_type=self.covariance_type,
 									init_params=self.init_params,max_iter=self.max_iter)
 			X_class = X[y==i,:]
 			self.P[i] = np.sum(np.int32(X_class > 0)) / len(y)

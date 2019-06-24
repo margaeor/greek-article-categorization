@@ -16,10 +16,6 @@ from multiprocessing.pool import ThreadPool
 from wordcloud import WordCloud
 
 
-def cosine(x, y):
-	res = 1 - np.dot(x, y) / (norm(x) * norm(y))
-	return res
-
 class Plotter:
 
 	def __init__(self,preprocess=True,threads=5,ignore_pickles=False):
@@ -66,7 +62,7 @@ class Plotter:
 
 		# Tranform data
 		if verbose: print("Transforming data...")
-		self.X_train = self.prep.transform_train(self.X_train, method='entropy')
+		self.X_train = self.prep.transform_train(self.X_train, method='binary')
 		self.X_test = self.prep.transform_test(self.X_test)
 
 		# Reduce dimensions
@@ -111,7 +107,7 @@ class Plotter:
 
 		# Tranform data
 		if verbose: print("Transforming data...")
-		X_train = self.prep.transform_train(X_train, method='entropy')
+		X_train = self.prep.transform_train(X_train, method='binary')
 		X_test = self.prep.transform_test(X_test)
 
 		# Reduce dimensions
@@ -202,7 +198,7 @@ class Plotter:
 			{'method':'SVM','kernel': 'rbf', 'C': 1.5, 'gamma': 'scale', 'decision_function_shape': 'ovo'},
 			{'method':'RandomForest','n_estimators':35},
 			{'method':'MEAN','metric': 'mahalanobis','metric_params':{'V': np.cov(self.X_train, rowvar=False)}},
-			{'method':'GMM','covariance_type':'full', 'n_components': 15},
+			{'method':'GMM','covariance_type':'diag', 'n_components': 11},
 			{'method':'KNN','n_neighbors': 10, 'metric': 'cosine'},
 			#{'method':'ANN','epochs': 40, 'batch_size': 20},
 			#{'method':'CNN','epochs': 40, 'batch_size': 10},

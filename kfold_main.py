@@ -12,7 +12,7 @@ pool = ThreadPool(processes=3)
 
 
 def cosine(x, y):
-	res = 1 - np.dot(x, y) / (norm(x) * norm(y))
+	res = np.arccos(np.dot(x, y) / (norm(x) * norm(y)))
 	return res
 
 def train_and_evaluate(prep,articles_train,articles_test,labels_train,labels_test):

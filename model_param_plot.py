@@ -7,15 +7,15 @@ if __name__ == '__main__':
 
 	plotter = Plotter(threads=5,ignore_pickles=True)
 
-	plotter.visualize_bigrams(40)
-	print(plotter.prep.best_bigram_scores)
+	#plotter.visualize_bigrams(40)
+	#print(plotter.prep.best_bigram_scores)
 
 	#plotter.visualize_descriptive_terms(200)
 	#print(plotter.prep.selected_words)
 
 	# start = time.time()
 	#
-	# methods = ['MEAN','RandomForest','GMM','SVM','KNN']
+	# methods = ['GMM','MEAN','RandomForest','SVM','KNN']
 	#
 	# for method in methods:
 	# 	print("Running " + method)
