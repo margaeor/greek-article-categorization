@@ -18,13 +18,13 @@ from wordcloud import WordCloud
 
 class Plotter:
 
-	def __init__(self,preprocess=True,threads=5,ignore_pickles=False):
+	def __init__(self,preprocess=True,threads=5,ignore_pickles=False,strict=False):
 
 		# Initialize the thread pool used for parallel processing
 		self.pool = ThreadPool(processes=threads)
 
 		# Initialize the main preprocessor object
-		self.prep = Preprocessor(ignore_pickles=ignore_pickles,strict=False,n_bigrams=3000,bigram_min_freq=10)
+		self.prep = Preprocessor(ignore_pickles=ignore_pickles,strict=strict,n_bigrams=3000,bigram_min_freq=10)
 
 		if preprocess:
 			self.preprocess()

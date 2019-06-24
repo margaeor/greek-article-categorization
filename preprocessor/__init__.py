@@ -56,7 +56,6 @@ class Preprocessor(object):
 		with open(os.path.join(
                   os.path.dirname(__file__), 'neutral_words.txt'), 'r',encoding="utf8") as fp:
 			self.neutral_words = set([w[:-1] for w in fp.readlines()])
-		#print(self.neutral_words)
 
 		self.greek_stemmer = GreekStemmer()
 
@@ -385,8 +384,8 @@ class Preprocessor(object):
 
 		results = [(a,b) for a,b in zip(best_pairs // n_dims, best_pairs % n_dims)]
 
-		for tup in results:
-			print(self.id2word[self.selected_dims[tup[0]]]+"-"+self.id2word[self.selected_dims[tup[1]]])
+		#for tup in results:
+		#	print(self.id2word[self.selected_dims[tup[0]]]+"-"+self.id2word[self.selected_dims[tup[1]]])
 
 		pass
 
@@ -449,7 +448,7 @@ class Preprocessor(object):
 			p[np.isnan(p)] = 1
 
 			e = 1 + np.nan_to_num(np.sum(p*np.log(p),axis=0)/np.log(tfidf.shape[0]))
-			print(e.shape)
+			#print(e.shape)
 			e[e== -inf] = 0
 
 			l = e*np.log(1 + tfidf)
@@ -485,7 +484,7 @@ class Preprocessor(object):
 			transformed,l_kwargs,transform_model_type,reduction_model,= data
 			if transform_model_type == self.transform_model and l_kwargs == kwargs:
 				self.reduction_model = reduction_model
-				print(transformed.shape)
+				#print(transformed.shape)
 				return transformed
 
 		if method == 'PCA':
