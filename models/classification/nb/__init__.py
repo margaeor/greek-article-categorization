@@ -49,6 +49,8 @@ class NB:
 
 		aposteriori = np.zeros((X.shape[0],n_classes))
 
+		# Use bayes probability law to calculate aposteriori probability of the sample belonging
+		# to a certain class.
 		for i in range(n_classes):
 			aposteriori[:,i] = 	self.calculate_class_prob(X,self.mu[i,:],self.vr[i,:]) * self.P[i]
 

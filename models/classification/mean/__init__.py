@@ -47,6 +47,7 @@ class MEAN_CLASSIFIER:
 		for i in range(self.n_classes):
 
 			sample_mask = (self.y_train==i)
+
 			# Calculate class mean
 			mu[i,:] = np.mean(self.X_train[sample_mask,:],axis=0)
 
@@ -60,6 +61,7 @@ class MEAN_CLASSIFIER:
 		if len(self.X_train)<=0 or len(self.y_train)<=0 or len(self.y_train)!= len(self.X_train):
 			raise Exception("Error with data")
 
+		# Assign each sample to a specific class minimizing the distance
+		# of the sample from the mean of the class
 		M = [[self.dist(m,x) for m in self.mu] for x in X]
-
 		return np.argmin(M,axis=1)

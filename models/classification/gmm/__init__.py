@@ -21,8 +21,7 @@ class GMM:
 		self.n_classes = len(class_labels)
 		self.P = np.zeros(self.n_classes, dtype=np.float32)
 
-		n_samples,n_features = X.shape
-
+		# Fit one GMM to each class
 		for i in range(self.n_classes):
 			model = GaussianMixture(n_components=self.n_components,covariance_type=self.covariance_type,
 									init_params=self.init_params,max_iter=self.max_iter)
@@ -37,6 +36,8 @@ class GMM:
 
 		probs = np.zeros((X.shape[0], self.n_classes))
 
+		# Calculate the probability of a sample belonging to a certain class
+		# by summing the log likelihoods of the individual gaussian components
 		for (i,model) in self.models.items():
 			probs[:,i] = np.sum(model._estimate_log_prob(X),axis=1)#+np.log(self.P[i])
 

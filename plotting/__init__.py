@@ -11,7 +11,6 @@ from models.classification.mean import MEAN_CLASSIFIER
 from matplotlib import pyplot as plt
 from sklearn.model_selection import KFold
 import numpy as np
-from numpy.linalg import norm
 from multiprocessing.pool import ThreadPool
 from wordcloud import WordCloud
 

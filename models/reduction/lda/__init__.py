@@ -51,59 +51,15 @@ class LDA:
 
 		eiglist = [(eigvals[i], eigvecs[:, i]) for i in range(len(eigvals))]
 
-		# sort the eigvals in decreasing order
+		# Sort the eigvals in decreasing order
 		self.eiglist = sorted(eiglist, key=lambda x: x[0], reverse=True)
 
 	def transform(self,X):
 
+		# Project samples to the eigenvalues
 		proj = np.array([item[1] for item in self.eiglist[:self.n_components]])
 
 		res = np.matmul(X,proj.T)
 
-		#print(res.shape)
 
 		return res
-
-
-	def estimate_params(self,data):
-		# group data by label column
-		grouped = data.groupby(self.data.ix[:, self.labelcol])
-
-		# calculate means for each class
-		means = {}
-		for c in self.classes:
-			means[c] = np.array(self.drop_col(self.classwise[c], self.labelcol).mean(axis=0))
-
-		# calculate the overall mean of all the data
-		overall_mean = np.array(self.drop_col(data, self.labelcol).mean(axis=0))
-
-		# calculate between class covariance matrix
-		# S_B = \sigma{N_i (m_i - m) (m_i - m).T}
-		S_B = np.zeros((data.shape[1] - 1, data.shape[1] - 1))
-		for c in means.keys():
-			S_B += np.multiply(len(self.classwise[c]),
-							   np.outer((means[c] - overall_mean),
-										(means[c] - overall_mean)))
-
-		# calculate within class covariance matrix
-		# S_W = \sigma{S_i}
-		# S_i = \sigma{(x - m_i) (x - m_i).T}
-		S_W = np.zeros(S_B.shape)
-		for c in self.classes:
-			tmp = np.subtract(self.drop_col(self.classwise[c], self.labelcol).T, np.expand_dims(means[c], axis=1))
-			S_W = np.add(np.dot(tmp, tmp.T), S_W)
-
-		# objective : find eigenvalue, eigenvector pairs for inv(S_W).S_B
-		mat = np.dot(np.linalg.pinv(S_W), S_B)
-		eigvals, eigvecs = np.linalg.eig(mat)
-		eiglist = [(eigvals[i], eigvecs[:, i]) for i in range(len(eigvals))]
-
-		# sort the eigvals in decreasing order
-		eiglist = sorted(eiglist, key=lambda x: x[0], reverse=True)
-
-		# take the first num_dims eigvectors
-		w = np.array([eiglist[i][1] for i in range(self.num_dims)])
-
-		self.w = w
-		self.means = means
-		return

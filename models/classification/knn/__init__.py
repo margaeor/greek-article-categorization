@@ -45,7 +45,7 @@ class KNN:
 		if len(self.X_train)<=0 or len(self.y_train)<=0 or len(self.y_train)!= len(self.X_train):
 			raise Exception("Error with data")
 
-		# Calculate distances for every x in X between x and the training set
+		# Calculate distances for every sample between the sample and the training set
 		dst = [[self.dist(X[i,:],self.X_train[j,:]) for j in range(self.X_train.shape[0])]
 						  for i in range(X.shape[0])]
 

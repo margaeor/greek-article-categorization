@@ -12,8 +12,12 @@ if __name__ == '__main__':
 				   'models kfold\n> '))
 	assert b2 in range(1,5)
 
+	b3 = int(input('Perform clean file parsing or use pickles?:\n1)Use pickles\n2)Perform clean file parsing\n> '))
 
-	plotter = Plotter(threads=b1, ignore_pickles=True,strict=False)
+	assert b3 in range(1,3)
+
+
+	plotter = Plotter(threads=b1, ignore_pickles=True,strict=(b3==2))
 
 	while b2 != 5:
 
