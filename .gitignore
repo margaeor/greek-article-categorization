@@ -3,6 +3,9 @@
 *.psd
 **/photoshop/
 
+report/
+
+
 # Illustrator
 *.ai
 **/illustrator/
@@ -17,11 +20,16 @@ notes/
 **/misc/
 desktop.ini
 *.zip
-*report*.pdf
+#*report*.pdf
 
 *.pdf
 *.gnuplot
 *.table
+*.pickle
+*.metadata
+*.data
+
+!**/report.pdf
 
 *.sym
 
