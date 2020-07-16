@@ -23,8 +23,7 @@ which are more important in determining the category
 an article belongs to.
 Those terms (and bigrams) are shown in the images below:
 
-![Terms](./presentation/images/terms1.png?raw=true "Terms")
-![Bigrams](./presentation/images/bigrams.png?raw=true "Bigrams")
+![Terms and Bigrams](./presentation/images/cloud.png?raw=true "Terms")
 
 # Results
 The classification accuracy for different models using PCA
