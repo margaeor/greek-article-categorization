@@ -10,6 +10,8 @@ report/
 *.ai
 **/illustrator/
 
+*.db
+
 **/.idea/
 
 # Latex
