@@ -29,7 +29,7 @@ Those terms (and bigrams) are shown in the images below:
 The classification accuracy for different models using PCA
 as dimensionality reduction is shown below:
 
-![Results](./presentation/images/results.png?raw=true "Results")
+![Results](./presentation/images/results2.png?raw=true "Results")
 
 # Running
 In order to run this project you need tensorflow 1.8, numpy and matplotlib.
