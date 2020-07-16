@@ -13,7 +13,7 @@ into the following categories:
 The process followed in order to perform this task
 is described in the image below:
 
-![Preprocessing Steps](./presentation/images/process.png?raw=true "Preprocessing Steps")
+![Preprocessing Steps](./presentation/images/process2.png?raw=true "Preprocessing Steps")
 
 # Terms - Bigrams
 By performing the preprocessing steps on our dataset
