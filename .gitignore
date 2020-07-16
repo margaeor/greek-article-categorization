@@ -29,7 +29,7 @@ desktop.ini
 *.metadata
 *.data
 
-!**/report.pdf
+!report.pdf
 
 *.sym
 
@@ -413,7 +413,7 @@ _xmsgs/
 
 # End of https://www.gitignore.io/api/xilinxise
 *.gz
-*.pdf
+#*.pdf
 *.out
 *.aux
 *.pyc
