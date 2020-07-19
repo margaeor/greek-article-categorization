@@ -48,3 +48,4 @@ After installing those packages there are 2 scripts you can run:
    2. **Visualize terms**: Creates a word-cloud visualization of the most important terms.
    3. **Run model grid param search**: For every model (GMM, MEAN, RandomForest, SVM, KNN) it evaluates and displays the model accuracy for different sets of parameters.
    4. **Run all models kfold**: Runs every model using kfold cross validation and displays the accuracy in a common figure.
+     
